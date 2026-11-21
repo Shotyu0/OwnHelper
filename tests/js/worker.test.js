@@ -43,10 +43,20 @@ test('relay signs in with the service account and writes activity + daily summar
   const calls = fakeGoogle();
   const res = await worker.fetch(post({ timezone: 'America/New_York', steps: [{ count: 4321, start_time: '2026-11-21T05:00:00Z', end_time: '2026-11-22T05:00:00Z' }] }), env);
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { ok: true, days: ['2026-11-21'], exercises: 0 });
+  assert.deepEqual(await res.json(), { ok: true, days: ['2026-11-21'], exercises: 0, received: { steps: 1 } });
   const commits = calls.filter(c => c.url.endsWith(':commit')).map(c => JSON.parse(c.body));
   assert.equal(commits[0].writes[0].update.name, ROOT + '/activity/2026-11-21');
   const daily = commits[1].writes[0];
   assert.equal(daily.update.name, ROOT + '/daily/2026-11-21');
   assert.equal(daily.update.fields.steps.integerValue, '4321');
+});
+
+test('every accepted sync records what arrived in meta/sync', async () => {
+  const calls = fakeGoogle();
+  const res = await worker.fetch(post({ timezone: 'UTC', heart_rate: [] }), env);
+  assert.equal(res.status, 200);
+  const commits = calls.filter(c => c.url.endsWith(':commit')).map(c => JSON.parse(c.body));
+  const sync = commits.at(-1).writes[0].update;
+  assert.equal(sync.name, ROOT + '/meta/sync');
+  assert.equal(sync.fields.counts.mapValue.fields.heart_rate.integerValue, '0');
 });

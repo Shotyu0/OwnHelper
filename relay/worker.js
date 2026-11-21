@@ -5,7 +5,7 @@
 //
 // Secrets (npx wrangler secret put ...): FIREBASE_SA (service account JSON), HC_TOKEN (any long random string).
 // Vars (wrangler.toml): OWNER_UID (your Firebase Auth uid).
-import { transform, writes, plain, dailyWrite, bodyWrite } from './hc.js';
+import { transform, writes, plain, dailyWrite, bodyWrite, value } from './hc.js';
 import { sumIntervals } from '../web/js/activity.js';
 
 let google = null;
@@ -55,8 +55,13 @@ export default {
         const w = bodyWrite(root, doc ? plain({ mapValue: { fields: doc.found.fields || {} } }) : null, result.body);
         if (w) await call(':commit', { writes: [w] });
       }
-      return json({ ok: true, days, exercises: result.exercises.length });
+      // What arrived, for "did my sync work?" (Settings page). Counts only, no health values.
+      const counts = Object.fromEntries(Object.entries(payload || {}).filter(([, v]) => Array.isArray(v)).map(([k, v]) => [k, v.length]));
+      console.log(JSON.stringify({ sync: counts, days }));
+      await call(':commit', { writes: [{ update: { name: `${root}/meta/sync`, fields: value({ at: Date.now(), counts, days, error: null }).mapValue.fields } }] });
+      return json({ ok: true, days, exercises: result.exercises.length, received: counts });
     } catch (e) {
+      console.log(JSON.stringify({ error: String(e.message || e) }));
       // 5xx makes HC Webhook retry later.
       return json({ error: String(e.message || e) }, 502);
     }

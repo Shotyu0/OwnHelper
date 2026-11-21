@@ -1,4 +1,4 @@
-import { DAY_KEYS } from '../time.js';
+import { DAY_KEYS, fmtDateTime } from '../time.js';
 import { effectiveGaming, gamingChange } from '../settings.js';
 import { DAY_TYPES } from '../workout.js';
 import { esc, $, toast } from '../ui.js';
@@ -12,7 +12,12 @@ export async function render(main, ctx) {
   const num = (name, value, label, attrs = '') => `<label>${label}</label><input type="number" name="${name}" value="${esc(value)}" ${attrs}>`;
   const box = (name, on, label) => `<label class="plain"><input type="checkbox" class="auto" name="${name}" ${on ? 'checked' : ''}> ${label}</label>`;
   // meta/relay {url, token} is written when the relay is deployed, so the phone can copy them from here.
-  const hook = (await ctx.store.get('meta', 'relay').catch(() => null)) || {};
+  const [hook = {}, sync] = (await Promise.all([ctx.store.get('meta', 'relay'), ctx.store.get('meta', 'sync')]).catch(() => [])).map(x => x || undefined);
+  const got = sync?.counts ? Object.entries(sync.counts).filter(([, n]) => n > 0) : [];
+  const syncLine = !sync ? '<div class="flash wn small">No sync has reached the relay yet.</div>'
+    : `<div class="flash ${got.length ? 'ok' : 'wn'} small">Last sync: <b>${fmtDateTime(sync.at)}</b>. ${got.length
+      ? 'Received ' + got.map(([k, n]) => `${n} ${esc(k.replace(/_/g, ' '))}`).join(', ') + '.'
+      : 'It arrived but was empty: Health Connect had nothing to send. Check step 1 (Google Health → Health Connect) and the permissions in HC Webhook, then sync again.'}</div>`;
   const relay = hook.url || (cfg.relay ? cfg.relay.replace(/\/$/, '') + '/hc' : 'https://<your-worker>.workers.dev/hc');
   const copyValues = { url: relay, name: 'Authorization', header: hook.token ? 'Bearer ' + hook.token : '' };
   const copyBtn = k => (copyValues[k] ? ` <button type="button" class="small" data-copy="${k}">Copy</button>` : '');
@@ -63,6 +68,7 @@ export async function render(main, ctx) {
 
   <div class="grid mt">
     <div class="card" id="watch"><h2>Watch sync</h2>
+      ${syncLine}
       <ol class="small">
         <li><b>Pixel Watch:</b> in the <b>Google Health</b> app (formerly Fitbit), turn on sharing with <b>Health Connect</b> and allow all data.
           <b>Galaxy Watch:</b> Samsung Health → Settings → Health Connect. (Or phone Settings → search "Health Connect" → App permissions.)</li>
