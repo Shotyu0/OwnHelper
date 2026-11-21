@@ -11,7 +11,11 @@ export async function render(main, ctx) {
   const g = effectiveGaming(s, ctx.today());
   const num = (name, value, label, attrs = '') => `<label>${label}</label><input type="number" name="${name}" value="${esc(value)}" ${attrs}>`;
   const box = (name, on, label) => `<label class="plain"><input type="checkbox" class="auto" name="${name}" ${on ? 'checked' : ''}> ${label}</label>`;
-  const relay = cfg.relay ? cfg.relay.replace(/\/$/, '') + '/hc' : 'https://<your-worker>.workers.dev/hc';
+  // meta/relay {url, token} is written when the relay is deployed, so the phone can copy them from here.
+  const hook = (await ctx.store.get('meta', 'relay').catch(() => null)) || {};
+  const relay = hook.url || (cfg.relay ? cfg.relay.replace(/\/$/, '') + '/hc' : 'https://<your-worker>.workers.dev/hc');
+  const copyValues = { url: relay, name: 'Authorization', header: hook.token ? 'Bearer ' + hook.token : '' };
+  const copyBtn = k => (copyValues[k] ? ` <button type="button" class="small" data-copy="${k}">Copy</button>` : '');
 
   main.innerHTML = `<h1>Settings</h1><form id="f"><div class="grid">
     <div class="card"><h2>Workouts</h2>
@@ -58,15 +62,18 @@ export async function render(main, ctx) {
   </div><p><button class="primary">Save settings</button></p></form>
 
   <div class="grid mt">
-    <div class="card"><h2>Watch sync (Galaxy / Pixel / Wear OS)</h2>
+    <div class="card" id="watch"><h2>Watch sync</h2>
       <ol class="small">
-        <li>Make sure your watch app (Samsung Health / Fitbit) shares data with <b>Health Connect</b> (phone Settings → Health Connect → App permissions).</li>
-        <li>Install <b>HC Webhook</b> (<a href="https://github.com/mcnaveen/health-connect-webhook" target="_blank" rel="noopener">github.com/mcnaveen/health-connect-webhook</a>, also on Google Play) and grant it read access.</li>
-        <li>Webhook URL: <code>${esc(relay)}</code></li>
-        <li>Add a header <code>Authorization</code> = <code>Bearer &lt;your HC_TOKEN&gt;</code> (the secret you gave the Worker).</li>
-        <li>Data: Steps, Heart rate, Exercise, Active calories, Distance, Weight, Resting heart rate, VO2 max, Body fat. Sync every 15–30 min.</li>
-        <li>On a Galaxy Watch, set heart rate to <b>measure continuously</b> (Galaxy Wearable → Watch settings → Samsung Health → Heart rate), so your sets can be checked.</li>
-        <li>Tap <b>Sync now</b>, then open Activity here.</li>
+        <li><b>Pixel Watch:</b> in the <b>Google Health</b> app (formerly Fitbit), turn on sharing with <b>Health Connect</b> and allow all data.
+          <b>Galaxy Watch:</b> Samsung Health → Settings → Health Connect. (Or phone Settings → search "Health Connect" → App permissions.)</li>
+        <li>Install <b>HC Webhook</b> from Google Play (<a href="https://github.com/mcnaveen/health-connect-webhook" target="_blank" rel="noopener">about it</a>),
+          open it, tap <b>Grant permissions</b> and allow: Steps, Heart rate, Exercise, Active calories, Distance, Weight, Resting heart rate, VO2 max, Body fat.</li>
+        <li>Add a webhook. URL: <code>${esc(relay)}</code>${copyBtn('url')}</li>
+        <li>Add a header. Name: <code>Authorization</code>${copyBtn('name')} Value: <code>${hook.token ? 'Bearer ••••••••' : 'Bearer &lt;your HC_TOKEN&gt;'}</code>${copyBtn('header')}</li>
+        <li>Sync mode <b>Interval, 15 min</b>. Save, tap <b>Sync now</b>, then open Activity here.</li>
+        <li>Phone Settings → Apps → HC Webhook → Battery → <b>Unrestricted</b>, so Android doesn't pause the syncs.</li>
+        <li>Heart rate all day is needed to check your gaming sets: Pixel Watch does this by default; on a Galaxy Watch set it to
+          <b>measure continuously</b> (Galaxy Wearable → Watch settings → Samsung Health → Heart rate).</li>
       </ol></div>
     <div class="card"><h2>Account &amp; data</h2>
       <p class="small">${esc(user.displayName || '')} ${user.email ? `(${esc(user.email)})` : ''}<br>uid: <code>${esc(user.uid)}</code>
@@ -113,6 +120,11 @@ export async function render(main, ctx) {
     a.download = `personal-helper-${ctx.today()}.json`;
     a.click();
   };
+  $('#watch', main).addEventListener('click', async e => {
+    const k = e.target.closest('[data-copy]')?.dataset.copy;
+    if (!k) return;
+    try { await navigator.clipboard.writeText(copyValues[k]); toast('Copied.', 'ok'); } catch (_) { prompt('Copy this:', copyValues[k]); }
+  });
   const so = $('#signout', main);
   if (so) so.onclick = () => ctx.auth.signOut();
 }

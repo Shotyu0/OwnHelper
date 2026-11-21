@@ -12,7 +12,7 @@ export default {
   },
 
   // The Cloudflare Worker in relay/ (shown on the Settings page so you can paste it into HC Webhook).
-  relay: null,   // e.g. 'https://personal-helper-relay.<you>.workers.dev'
+  relay: 'https://personal-helper-relay.shotyu.workers.dev',
 
   // The Korean reader runs on your PC (its language model is ~100 MB, too big for a phone).
   pcReader: 'http://localhost:5057/reader',

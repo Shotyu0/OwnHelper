@@ -55,7 +55,8 @@ npx wrangler secret put HC_TOKEN         # paste a long random string
 npx wrangler deploy
 ```
 Put the Worker URL in `web/config.js` (`relay`). On the phone:
-1. Let Samsung Health / Fitbit write to **Health Connect**.
+1. Let your watch app write to **Health Connect**: on a Pixel Watch that's the **Google Health** app (formerly
+   Fitbit); on a Galaxy Watch, Samsung Health.
 2. Install **HC Webhook** ([github.com/mcnaveen/health-connect-webhook](https://github.com/mcnaveen/health-connect-webhook), on Google Play).
 3. Set the webhook URL to `https://<worker>/hc` and add the header `Authorization: Bearer <HC_TOKEN>`.
 4. Choose Steps, Heart rate, Exercise, Active calories, Distance, Weight, Resting heart rate, VO2 max and Body fat,
@@ -63,7 +64,8 @@ Put the Worker URL in `web/config.js` (`relay`). On the phone:
 5. On a Galaxy Watch, set heart rate to **measure continuously** (Galaxy Wearable → Watch settings → Samsung
    Health → Heart rate). The app uses it to check your in-game sets afterwards.
 
-The web app's Settings page shows the exact URL.
+The web app's Settings page shows the exact URL and, once the relay is deployed, has Copy buttons for the URL
+and the header (the token is kept in your private Firestore at meta/relay so the phone can copy it).
 
 **Korean keyboard:** Windows Settings → Time & Language → Language → add 한국어. Switch with Win+Space,
 then Right Alt toggles 한/A. On Android, add Korean in Gboard / Samsung Keyboard.
