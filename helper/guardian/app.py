@@ -89,7 +89,7 @@ def hotkey_thread(events: queue.Queue) -> None:
 
 def plan_text(items) -> str:
     """Same wording as web/js/workout.js setText."""
-    return " + ".join(f"{i.get('reps')} × {i.get('name')}" + (f" ({i['note']})" if i.get("note") else "")
+    return " + ".join((f"{i['reps']} × " if i.get("reps") else "") + str(i.get("name")) + (f" ({i['note']})" if i.get("note") else "")
                       for i in items or []) or "a short set"
 
 

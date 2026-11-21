@@ -91,9 +91,10 @@ export async function render(main, ctx) {
 
       <div class="card"><h2>Sets while gaming</h2>
         <div class="big">${g.setEveryMinutes > 0 ? `every ${g.setEveryMinutes} min` : 'off'}<span class="muted unit"> of play</span></div>
-        <p class="small">Alternating:<br>A: <b>${esc(setText(variants[0]))}</b><br>B: <b>${esc(setText(variants[1]))}</b></p>
-        <p class="small">Sized from your home-workout levels at about 70% of the bottom of the rep range, so it stays well short of failure and
-          doesn't hurt your next workout. When you level up in a workout, the sets follow.
+        <p class="small">${variants.length > 1 ? 'Taking turns:' : 'Each set:'}${variants.map((v, i) => `<br>${variants.length > 1 ? String.fromCharCode(65 + i) + ': ' : ''}<b>${esc(setText(v))}</b>`).join('')}</p>
+        <p class="small">${g.setMenu?.length ? 'Your own menu (Settings). Stop each move 2–3 reps short of failure: these come every 30 minutes, all day.'
+          : `Sized from your home-workout levels at about 70% of the bottom of the rep range, so it stays well short of failure and
+          doesn't hurt your next workout. When you level up in a workout, the sets follow. Edit them in Settings.`}
           ${g.setsRequired ? 'If a set is overdue, the game is closed until you log it.' : 'Overdue sets only remind you.'}</p>
         <p class="small muted">Brief "exercise snacks" through the day build strength and fitness; with weekly volume equal, splitting it into more,
           smaller bouts works about as well; 1–2 minute bursts of vigorous effort in daily life are linked to lower mortality.

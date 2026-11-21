@@ -154,18 +154,33 @@ export function setPlan(settings, states = {}) {
   };
   return [
     [upper('home.push'), squat()],
-    [eq.includes('pullup_bar') ? upper('home.pull') : upper('home.vpush'), hinge()],
+    // No pike push-ups here: head-down pressing is easy to get wrong when you're tired mid-game.
+    [eq.includes('pullup_bar') ? upper('home.pull') : upper('home.push'), hinge()],
   ];
 }
 
-export const setText = items => (items || []).map(i => `${i.reps} × ${i.name}${i.note ? ` (${i.note})` : ''}`).join(' + ');
+export const setText = items => (items || []).map(i => `${i.reps ? `${i.reps} × ` : ''}${i.name}${i.note ? ` (${i.note})` : ''}`).join(' + ');
+
+/** Your own set menu (Settings): one line per set, items joined with "+", e.g. "6 Push-up + Bar curls (stop 2 short)". */
+export function parseSetMenu(text) {
+  return String(text || '').split(/\r?\n/).map(line => line.split('+').map(part => {
+    const m = /^\s*(?:(\d+)\s*[×x*]?\s+)?(.*?)\s*(?:\(([^)]*)\))?\s*$/i.exec(part);
+    return m && m[2] ? { name: m[2], reps: m[1] ? +m[1] : null, ...(m[3] ? { note: m[3] } : {}) } : null;
+  }).filter(Boolean)).filter(items => items.length);
+}
+export const formatSetMenu = menu => fromStored(menu).map(items => setText(items).replace(/(\d+) × /g, '$1 ')).join('\n');
+
+// Firestore can't store arrays inside arrays, so a list of sets is stored as [{items: [...]}, ...].
+export const toStored = variants => (variants || []).map(items => ({ items }));
+export const fromStored = list => (list || []).map(v => (Array.isArray(v) ? v : v?.items || [])).filter(items => items.length);
 
 /** Keeps meta/setPlan (read by the PC guardian) in step with your workout levels and equipment. */
 export async function syncSetPlan(store, settings) {
   const states = Object.fromEntries((await store.query('exerciseState')).map(s => [s.id, s]));
-  const variants = setPlan(settings, states);
+  const menu = fromStored(settings.gaming.setMenu);
+  const variants = menu.length ? menu : setPlan(settings, states);
   const sig = JSON.stringify(variants);
   const cur = await store.get('meta', 'setPlan');
-  if (cur?.sig !== sig) store.set('meta', 'setPlan', { variants, sig, at: Date.now() });
+  if (cur?.sig !== sig) store.set('meta', 'setPlan', { variants: toStored(variants), sig, at: Date.now() });
   return variants;
 }

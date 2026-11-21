@@ -164,7 +164,7 @@ def test_sets_are_due_every_30_min_of_play_across_sessions():
     st = r.status()["sets"]
     assert st["today"] == 1 and st["dueAt"] == clock[0] + 30 * MIN
     assert store.query("snacks")[0]["session"] == r.active_session()["id"]
-    store.set("meta", "setPlan", {"variants": [[{"name": "A", "reps": 1}], [{"name": "B", "reps": 2}]]})
+    store.set("meta", "setPlan", {"variants": [{"items": [{"name": "A", "reps": 1}]}, {"items": [{"name": "B", "reps": 2}]}]})
     assert r.status()["sets"]["next"] == [{"name": "B", "reps": 2}]   # alternates by sets done today
     r.settings["gaming"]["setEveryMinutes"] = 0
     assert r.status()["sets"] is None

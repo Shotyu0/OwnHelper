@@ -60,7 +60,7 @@ test('sets during play follow workout levels and equipment', () => {
   const s = withDefaults({ workout: { homeEquipment: [] } });
   const [a, b] = setPlan(s, {});
   assert.equal(setText(a), '6 × Push-up + 15 × Bodyweight squat');
-  assert.equal(b[0].name, 'Pike push-up (hips high)');
+  assert.equal(b[0].name, 'Push-up');                         // no pike push-ups mid-game
   const bar = setPlan(withDefaults({ workout: { homeEquipment: ['pullup_bar', 'dumbbells'] } }),
     { 'home.push': { level: 5 }, 'home.squat': { level: 3 } });
   assert.equal(setText(bar[0]), '6 × Diamond push-up + 8 × Bulgarian split squat (rear foot on chair) (each leg)');
@@ -149,4 +149,21 @@ test('walks: start, stop with a treadmill reading, learn cadence, estimate next 
   assert.equal(Object.keys(day.walks).length, 2);
   const live = Wk.walksFor(day, { start: t0 + 80 * 60e3 }, t0 + 90 * 60e3, 90);
   assert.equal(live.open.steps, 900);
+});
+
+test('your own set menu: parsed from Settings, stored without nested arrays (Firestore rejects them)', async () => {
+  const W = await import('../../web/js/workout.js');
+  const { LocalStore } = await import('../../web/js/store-core.js');
+  const nested = x => Array.isArray(x) ? x.some(y => Array.isArray(y) || nested(y)) : x && typeof x === 'object' ? Object.values(x).some(nested) : false;
+  const menu = W.parseSetMenu('6 Push-up + 15 Bodyweight squat + Bar curls (stop 2 short of failure)');
+  assert.equal(W.setText(menu[0]), '6 × Push-up + 15 × Bodyweight squat + Bar curls (stop 2 short of failure)');
+  const s = withDefaults({ gaming: { setMenu: W.toStored(menu) } });
+  assert.ok(!nested(s.gaming.setMenu));
+  assert.equal(W.formatSetMenu(s.gaming.setMenu), '6 Push-up + 15 Bodyweight squat + Bar curls (stop 2 short of failure)');
+  const mem = new Map();
+  const store = new LocalStore('m:', { getItem: k => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: k => mem.delete(k) });
+  assert.deepEqual(await W.syncSetPlan(store, s), menu);
+  const saved = await store.get('meta', 'setPlan');
+  assert.ok(!nested(saved) && saved.variants[0].items.length === 3);
+  assert.equal((await W.syncSetPlan(store, withDefaults())).length, 2);   // empty menu: back to workout levels
 });

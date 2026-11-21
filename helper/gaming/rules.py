@@ -24,7 +24,7 @@ DAY_LABELS = {"gym30": "lunch gym"}   # web/js/workout.js DAY_TYPES
 # Used until the web app has written meta/setPlan from your workout levels.
 DEFAULT_SET_PLAN = [
     [{"name": "Push-up", "reps": 6}, {"name": "Bodyweight squat", "reps": 15}],
-    [{"name": "Pike push-up (hips high)", "reps": 5}, {"name": "Glute bridge", "reps": 15}],
+    [{"name": "Push-up", "reps": 6}, {"name": "Glute bridge", "reps": 15}],
 ]
 
 
@@ -143,7 +143,10 @@ class Rules:
         since = max(last or start, start)
         sessions = self.sessions_today() if sessions is None else sessions
         played = sum(self.session_minutes(s, now, since) for s in sessions)
-        plan = (self.store.get("meta", "setPlan") or {}).get("variants") or DEFAULT_SET_PLAN
+        # Stored as [{items: [...]}, ...] (Firestore has no arrays inside arrays); see web/js/workout.js toStored.
+        stored = (self.store.get("meta", "setPlan") or {}).get("variants") or []
+        plan = [v.get("items") if isinstance(v, dict) else v for v in stored]
+        plan = [p for p in plan if p] or DEFAULT_SET_PLAN
         return {
             "every": every, "required": bool(g.get("setsRequired")), "minSeconds": int(g.get("setMinSeconds", 30)),
             "today": len(done), "lastAt": last, "playedSince": round(played, 1),

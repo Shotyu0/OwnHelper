@@ -20,7 +20,8 @@ export const DEFAULTS = {
     // 0 = no limit (session choices, daily caps, set interval).
     sessionChoices: [0, 30, 60, 90, 120], dailyCapWeekday: 0, dailyCapWeekend: 0, cooldownMinutes: 0,
     // A short set (push/pull + legs) every setEveryMinutes of play; setsRequired closes the game when one is overdue.
-    setEveryMinutes: 30, setsRequired: true, setMinSeconds: 30,
+    // setMenu: your own sets ([[{name, reps, note}], ...], alternating); empty = sized from your home-workout levels.
+    setEveryMinutes: 30, setsRequired: true, setMinSeconds: 30, setMenu: [],
     warnAtMinutes: [10, 2], graceSeconds: 60,
     overrideWaitSeconds: 60, overrideMinReasonChars: 25, overrideMaxPerDay: 1, overrideExtendMinutes: 15,
   },
