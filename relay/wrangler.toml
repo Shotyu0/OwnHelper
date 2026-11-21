@@ -10,4 +10,4 @@ compatibility_date = "2025-10-01"
 
 [vars]
 # Your Firebase Auth uid (shown on the web app's Settings page after you sign in).
-OWNER_UID = "REPLACE_WITH_YOUR_UID"
+OWNER_UID = "ZTHpieoo6gMvUpdfe6JyNhKGWj02"

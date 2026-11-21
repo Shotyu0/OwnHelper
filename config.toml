@@ -3,7 +3,7 @@
 
 [cloud]
 # Your Firebase Auth uid (web app -> Settings).
-uid = ""
+uid = "ZTHpieoo6gMvUpdfe6JyNhKGWj02"
 # Firebase service account key (Firebase console -> Project settings -> Service accounts -> Generate new private key).
 # Keep it out of git; data/ is ignored.
 service_account = "data/service-account.json"
