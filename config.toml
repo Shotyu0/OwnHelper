@@ -1,0 +1,21 @@
+# PC-side settings for the guardian and the Korean reader. Restart (start.bat) after editing.
+# Schedule, Korean, activity goals and gaming limits are set in the web app's Settings page.
+
+[cloud]
+# Your Firebase Auth uid (web app -> Settings).
+uid = ""
+# Firebase service account key (Firebase console -> Project settings -> Service accounts -> Generate new private key).
+# Keep it out of git; data/ is ignored.
+service_account = "data/service-account.json"
+# Where the web app is published, e.g. "https://<you>.github.io/PersonalHelper/" (used for "Open dashboard").
+web_url = "https://shotyu0.github.io/OwnHelper/"
+
+[reader]
+port = 5057
+
+[guardian]
+# Steam apps (by name or app id) and executables that are never treated as games.
+allow_apps = ["Wallpaper Engine"]
+allow_exes = []
+# Non-Steam games to also guard (exe file names, e.g. "LeagueClient.exe").
+extra_game_exes = []

@@ -1,0 +1,10 @@
+.venv/
+/data/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+.wrangler/
+# Firebase service account keys belong in data/ (ignored) or the Worker secret, never in git.
+*firebase-adminsdk*.json
+service-account*.json

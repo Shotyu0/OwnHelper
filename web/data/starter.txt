@@ -1,0 +1,204 @@
+# deck|korean|meaning|hint|example_ko|example_en   (order = introduction order: high frequency first,
+# with the grammar you need to parse sentences mixed in early)
+grammar|은/는|topic marker ("as for ...")|은 after a consonant, 는 after a vowel|저는 학생이에요.|I am a student.
+vocab|저|I, me (polite)|pronoun; casual form is 나|저는 한국어를 배워요.|I'm learning Korean.
+grammar|-아요/어요|polite present ending|the everyday polite way to end a sentence|집에 가요.|I'm going home.
+vocab|이다|to be (A is B)|copula; 이에요 after a consonant, 예요 after a vowel|이건 물이에요.|This is water.
+vocab|하다|to do|verb; 해요|매일 운동을 해요.|I work out every day.
+grammar|을/를|object marker|을 after a consonant, 를 after a vowel|사과를 먹어요.|I eat an apple.
+vocab|있다|to exist, to have, to be (somewhere)|verb; 있어요|시간 있어요?|Do you have time?
+vocab|없다|to not exist, to not have|verb; 없어요|돈이 없어요.|I don't have money.
+grammar|이/가|subject marker|이 after a consonant, 가 after a vowel|고양이가 자요.|The cat is sleeping.
+vocab|나|I, me (casual)|pronoun|나는 지금 집에 있어.|I'm at home now.
+vocab|너|you (casual)|pronoun; only with close friends|너는 뭐 먹고 싶어?|What do you want to eat?
+vocab|우리|we, our|pronoun; also "my" for family/home|우리 집은 작아요.|Our house is small.
+vocab|이|this|determiner, before a noun|이 책은 재미있어요.|This book is interesting.
+vocab|그|that (already mentioned)|determiner, before a noun|그 사람은 누구예요?|Who is that person?
+vocab|것|thing|noun; often shortened to 거 in speech|먹을 것이 없어요.|There's nothing to eat.
+vocab|사람|person|noun|그 사람은 친절해요.|That person is kind.
+grammar|에|at / to (time, destination, where something is)|static location or direction|세 시에 학교에 가요.|I go to school at three.
+vocab|가다|to go|verb; 가요|학교에 가요.|I go to school.
+vocab|오다|to come|verb; 와요|친구가 집에 와요.|My friend is coming over.
+grammar|에서|at (where an action happens); from|used with action verbs|카페에서 공부해요.|I study at a café.
+vocab|보다|to see, to watch|verb; 봐요|영화를 봤어요.|I watched a movie.
+vocab|먹다|to eat|verb; 먹어요|아침을 먹었어요?|Did you eat breakfast?
+grammar|-았어요/었어요|past tense (polite)|ㅏ/ㅗ stems take 았, others take 었; 하다 → 했어요|어제 영화를 봤어요.|I watched a movie yesterday.
+vocab|마시다|to drink|verb; 마셔요|물을 많이 마셔요.|I drink a lot of water.
+vocab|아니다|to not be|verb; 아니에요|그건 제 가방이 아니에요.|That's not my bag.
+vocab|네|yes|also 예 (more formal)|네, 맞아요.|Yes, that's right.
+vocab|아니요|no|polite|아니요, 괜찮아요.|No, I'm okay.
+vocab|안|not (before a verb)|short negation|오늘은 안 가요.|I'm not going today.
+grammar|도|also, too|replaces 은/는, 이/가, 을/를|저도 가고 싶어요.|I want to go too.
+vocab|좋다|to be good, nice|adjective; 좋아요|날씨가 좋아요.|The weather is nice.
+vocab|좋아하다|to like|verb; 좋아해요|저는 커피를 좋아해요.|I like coffee.
+grammar|-고 싶다|want to (do)|verb stem + 고 싶어요|한국에 가고 싶어요.|I want to go to Korea.
+vocab|알다|to know|verb; 알아요|그 사람을 알아요.|I know that person.
+vocab|모르다|to not know|verb; 몰라요|잘 모르겠어요.|I'm not sure.
+vocab|뭐|what|casual form of 무엇|뭐 먹을래요?|What do you want to eat?
+vocab|누구|who|question word|누구세요?|Who is it?
+vocab|어디|where|question word|화장실이 어디예요?|Where is the restroom?
+vocab|언제|when|question word|언제 와요?|When are you coming?
+vocab|왜|why|question word|왜 늦었어요?|Why were you late?
+vocab|어떻게|how|question word|어떻게 가요?|How do I get there?
+vocab|얼마|how much|question word|이거 얼마예요?|How much is this?
+vocab|몇|how many, what (number)|before a counter|몇 살이에요?|How old are you?
+grammar|의|'s (possessive)|often dropped in speech|이건 친구의 차예요.|This is my friend's car.
+vocab|시간|time; hour|noun|시간이 없어요.|I don't have time.
+vocab|지금|now|adverb|지금 몇 시예요?|What time is it now?
+vocab|오늘|today|noun|오늘 뭐 해요?|What are you doing today?
+vocab|내일|tomorrow|noun|내일 봐요.|See you tomorrow.
+vocab|어제|yesterday|noun|어제 친구를 만났어요.|I met a friend yesterday.
+grammar|하고 / (이)랑 / 와/과|and; with|하고 and 랑 are spoken, 와/과 is written|친구하고 영화를 봤어요.|I watched a movie with a friend.
+vocab|친구|friend|noun|친구랑 게임을 했어요.|I played games with a friend.
+vocab|집|house, home|noun|집에 가고 싶어요.|I want to go home.
+vocab|일|work; day|noun; also the number one (Sino-Korean)|오늘 일이 많아요.|I have a lot of work today.
+vocab|많다|to be many, a lot|adjective; 많아요|사람이 많아요.|There are a lot of people.
+vocab|많이|a lot (adverb)|adverb|많이 드세요.|Enjoy your meal (lit. eat a lot).
+grammar|-고|and (then) — links two actions|verb stem + 고|밥을 먹고 커피를 마셨어요.|I ate and then drank coffee.
+vocab|그리고|and (between sentences)|conjunction|밥을 먹었어요. 그리고 커피를 마셨어요.|I ate. And then I drank coffee.
+vocab|하지만|but, however|conjunction|비싸요. 하지만 좋아요.|It's expensive. But it's good.
+grammar|-지만|but|verb stem + 지만|비싸지만 맛있어요.|It's expensive but delicious.
+vocab|그래서|so, therefore|conjunction|피곤했어요. 그래서 일찍 잤어요.|I was tired. So I went to bed early.
+grammar|-아서/어서|so / because; and then|cause → result (no past tense before it)|배가 고파서 밥을 먹었어요.|I was hungry, so I ate.
+vocab|그런데|but, by the way|conjunction; spoken 근데|그런데 내일 시간 있어요?|By the way, do you have time tomorrow?
+vocab|그럼|then, in that case|short for 그러면|그럼 내일 만나요.|Then let's meet tomorrow.
+vocab|한국어|Korean (language)|noun|한국어를 배우고 있어요.|I'm learning Korean.
+grammar|-고 있다|be doing (right now)|progressive; verb stem + 고 있어요|지금 공부하고 있어요.|I'm studying right now.
+vocab|한국|Korea|noun|한국에 가 본 적 있어요?|Have you ever been to Korea?
+vocab|말|words, speech|noun|그 말이 맞아요.|That's right (lit. those words are correct).
+vocab|말하다|to speak, to say|verb|천천히 말해 주세요.|Please speak slowly.
+grammar|-아/어 주세요|please (do it for me)|verb stem + 아/어 주세요|도와주세요.|Please help me.
+vocab|읽다|to read|verb; 읽어요|매일 한국어 책을 읽어요.|I read Korean books every day.
+vocab|책|book|noun|책을 읽어요.|I'm reading a book.
+vocab|쓰다|to write; to use|verb; 써요|이름을 써 주세요.|Please write your name.
+vocab|듣다|to listen, to hear|verb; irregular: 들어요|음악을 들어요.|I listen to music.
+vocab|배우다|to learn|verb; 배워요|수영을 배우고 싶어요.|I want to learn to swim.
+vocab|공부하다|to study|verb|도서관에서 공부해요.|I study at the library.
+grammar|-(으)ㄹ 거예요|will (future / prediction)|verb stem + (으)ㄹ 거예요|내일 비가 올 거예요.|It's going to rain tomorrow.
+vocab|만나다|to meet|verb; 만나요|주말에 친구를 만나요.|I meet friends on the weekend.
+vocab|주다|to give|verb; 줘요|선물을 줬어요.|I gave a present.
+vocab|받다|to receive|verb; 받아요|편지를 받았어요.|I got a letter.
+vocab|사다|to buy|verb; 사요|시장에서 과일을 샀어요.|I bought fruit at the market.
+vocab|물|water|noun|물 좀 주세요.|Some water, please.
+vocab|밥|rice; meal|noun|밥 먹었어요?|Have you eaten? (a common greeting)
+vocab|돈|money|noun|돈을 모으고 있어요.|I'm saving money.
+grammar|-(으)면|if, when|verb stem + (으)면|시간이 있으면 같이 가요.|If you have time, let's go together.
+vocab|같이|together|adverb|같이 가요!|Let's go together!
+vocab|같다|to be the same, to be like|adjective|우리는 같은 반이에요.|We are in the same class.
+vocab|크다|to be big|adjective; 커요|이 신발은 너무 커요.|These shoes are too big.
+vocab|작다|to be small|adjective; 작아요|방이 작아요.|The room is small.
+vocab|너무|too, so (very)|adverb|너무 더워요.|It's too hot.
+vocab|정말|really|adverb|정말 맛있어요!|It's really delicious!
+vocab|아주|very|adverb|아주 좋아요.|Very good.
+vocab|좀|a little; please (softener)|short for 조금|좀 도와주세요.|Could you help me a little?
+grammar|-(으)세요|please do (polite request); honorific|verb stem + (으)세요|여기 앉으세요.|Please sit here.
+vocab|여기|here|noun|여기에 앉으세요.|Please sit here.
+vocab|거기|there (near you)|noun|거기서 만나요.|Let's meet there.
+vocab|저기|over there|noun|화장실은 저기에 있어요.|The restroom is over there.
+vocab|잘|well|adverb|잘 잤어요?|Did you sleep well?
+vocab|못|can't|before a verb|수영을 못 해요.|I can't swim.
+grammar|-(으)ㄹ 수 있다/없다|can / can't|verb stem + (으)ㄹ 수 있어요|한국어를 읽을 수 있어요.|I can read Korean.
+vocab|다|all, everything|adverb|다 먹었어요.|I ate it all.
+vocab|더|more|adverb|더 주세요.|More, please.
+vocab|또|again; also|adverb|또 만나요!|See you again!
+vocab|다시|again (one more time)|adverb|다시 말해 주세요.|Please say that again.
+vocab|아직|still; (not) yet|adverb|아직 안 먹었어요.|I haven't eaten yet.
+vocab|벌써|already|adverb|벌써 열 시예요.|It's already ten o'clock.
+grammar|-습니다/ㅂ니다|formal polite ending|news, announcements, speeches; question form -습니까?|감사합니다.|Thank you (formal).
+vocab|운동|exercise|noun|운동은 건강에 좋아요.|Exercise is good for your health.
+vocab|운동하다|to work out|verb|아침에 운동해요.|I work out in the morning.
+vocab|게임|game|noun|게임을 너무 많이 해요.|I play games too much.
+vocab|매일|every day|adverb|매일 한국어를 공부해요.|I study Korean every day.
+vocab|자주|often|adverb|자주 운동해요?|Do you work out often?
+vocab|항상|always|adverb|항상 고마워요.|I'm always grateful.
+vocab|사랑|love|noun|사랑은 어려워요.|Love is difficult.
+vocab|생각|thought, idea|noun|좋은 생각이에요!|Good idea!
+vocab|생각하다|to think|verb|그렇게 생각해요.|I think so.
+grammar|-지 않다|not (long negation)|verb stem + 지 않아요; same meaning as 안|맵지 않아요.|It's not spicy.
+vocab|되다|to become; to be okay|verb; 돼요|의사가 되고 싶어요.|I want to become a doctor.
+vocab|자다|to sleep|verb; 자요|어제 늦게 잤어요.|I went to bed late yesterday.
+vocab|일어나다|to get up, to wake up|verb|일곱 시에 일어나요.|I get up at seven.
+vocab|살다|to live|verb; 살아요|서울에 살아요.|I live in Seoul.
+vocab|앉다|to sit|verb|의자에 앉으세요.|Please sit on the chair.
+vocab|서다|to stand|verb; 서요|버스에서 서 있었어요.|I was standing on the bus.
+vocab|때|time, when|noun; after a verb: -(으)ㄹ 때|어렸을 때 서울에 살았어요.|When I was young, I lived in Seoul.
+vocab|년|year|counter (with Sino-Korean numbers)|일 년 동안 한국어를 공부했어요.|I studied Korean for a year.
+vocab|날|day|noun|좋은 날이에요.|It's a good day.
+vocab|주|week|noun; 이번 주 = this week|이번 주는 바빠요.|I'm busy this week.
+vocab|주말|weekend|noun|주말 잘 보내세요!|Have a good weekend!
+vocab|아침|morning; breakfast|noun|아침에 커피를 마셔요.|I drink coffee in the morning.
+vocab|점심|lunch; midday|noun|점심 먹었어요?|Did you have lunch?
+vocab|저녁|evening; dinner|noun|저녁에 뭐 해요?|What are you doing this evening?
+vocab|밤|night|noun|밤에 잠이 안 와요.|I can't fall asleep at night.
+grammar|-(으)ㄹ게요|I'll (promise / decision)|speaker's own intention|제가 할게요.|I'll do it.
+vocab|하나|one (native)|native numbers count things and hours|사과 하나 주세요.|One apple, please.
+vocab|둘|two (native)|becomes 두 before a counter|우리 둘이 같이 가요.|The two of us are going together.
+vocab|셋|three (native)|becomes 세 before a counter|하나, 둘, 셋!|One, two, three!
+vocab|넷|four (native)|becomes 네 before a counter|우리 가족은 넷이에요.|There are four people in my family.
+vocab|다섯|five (native)|native number|다섯 시에 만나요.|Let's meet at five.
+vocab|번|time(s); number|counter|한 번 더 해 보세요.|Try one more time.
+grammar|(으)로|by means of; toward|로 after a vowel or ㄹ|버스로 가요.|I go by bus.
+vocab|음식|food|noun|한국 음식을 좋아해요.|I like Korean food.
+vocab|맛있다|to be delicious|adjective|이 김치 맛있어요.|This kimchi is delicious.
+vocab|재미있다|to be fun, interesting|adjective|이 드라마 재미있어요.|This drama is fun.
+vocab|어렵다|to be difficult|adjective; irregular: 어려워요|한국어 문법이 어려워요.|Korean grammar is difficult.
+vocab|쉽다|to be easy|adjective; irregular: 쉬워요|한글은 쉬워요.|Hangul is easy.
+vocab|바쁘다|to be busy|adjective; 바빠요|요즘 바빠요.|I'm busy these days.
+vocab|피곤하다|to be tired|adjective|오늘 너무 피곤해요.|I'm so tired today.
+vocab|아프다|to be sick, to hurt|adjective; 아파요|머리가 아파요.|My head hurts.
+vocab|괜찮다|to be okay|adjective|괜찮아요?|Are you okay?
+vocab|고맙다|to be thankful|adjective; 고마워요|정말 고마워요.|Thank you so much.
+vocab|미안하다|to be sorry|adjective|늦어서 미안해요.|Sorry I'm late.
+grammar|만|only|attaches to a noun|물만 마셨어요.|I only drank water.
+vocab|이름|name|noun|이름이 뭐예요?|What's your name?
+vocab|나라|country|noun|어느 나라 사람이에요?|What country are you from?
+vocab|가족|family|noun|가족이 보고 싶어요.|I miss my family.
+vocab|남자|man|noun|저 남자는 누구예요?|Who is that man?
+vocab|회사|company, office|noun|회사에 다녀요.|I work at a company.
+vocab|일하다|to work|verb|주말에도 일해요.|I work on weekends too.
+vocab|다니다|to go regularly, attend|verb|헬스장에 다녀요.|I go to the gym regularly.
+vocab|쉬다|to rest|verb; 쉬어요|오늘은 집에서 쉬어요.|Today I'm resting at home.
+vocab|힘들다|to be hard, exhausting|adjective|운동이 힘들었어요.|The workout was tough.
+vocab|건강|health|noun|건강이 제일 중요해요.|Health is the most important thing.
+vocab|걷다|to walk|verb; irregular: 걸어요|매일 삼십 분 걸어요.|I walk 30 minutes every day.
+vocab|달리다|to run|verb|공원에서 달렸어요.|I ran in the park.
+vocab|놀다|to play, hang out|verb|주말에 친구랑 놀았어요.|I hung out with a friend on the weekend.
+vocab|이기다|to win|verb|우리 팀이 이겼어요!|Our team won!
+vocab|지다|to lose|verb; 져요|게임에서 졌어요.|I lost the game.
+grammar|부터 ... 까지|from ... until|time ranges (place ranges use 에서 ... 까지)|아홉 시부터 다섯 시까지 일해요.|I work from nine to five.
+vocab|시작하다|to start|verb|수업이 아홉 시에 시작해요.|Class starts at nine.
+vocab|끝나다|to end|verb|영화가 언제 끝나요?|When does the movie end?
+vocab|기다리다|to wait|verb; 기다려요|잠깐만 기다려 주세요.|Please wait a moment.
+vocab|찾다|to look for, to find|verb|열쇠를 찾고 있어요.|I'm looking for my keys.
+vocab|필요하다|to need|adjective|도움이 필요해요.|I need help.
+vocab|중요하다|to be important|adjective|건강이 제일 중요해요.|Health is the most important thing.
+vocab|제일|the most|adverb; also 가장|제일 좋아하는 음식이 뭐예요?|What's your favorite food?
+vocab|처음|first time; beginning|noun|처음 뵙겠습니다.|Nice to meet you (formal).
+vocab|다음|next|noun|다음 역은 서울역입니다.|The next station is Seoul Station.
+vocab|먼저|first, ahead|adverb|먼저 가세요.|Please go ahead.
+vocab|빨리|quickly|adverb|빨리 와요!|Come quickly!
+vocab|천천히|slowly|adverb|천천히 드세요.|Take your time eating.
+vocab|이해하다|to understand|verb|이해했어요?|Did you understand?
+vocab|가르치다|to teach|verb|영어를 가르쳐요.|I teach English.
+vocab|날씨|weather|noun|오늘 날씨가 어때요?|How's the weather today?
+vocab|비|rain|noun|비가 와요.|It's raining.
+vocab|눈|eye; snow|noun (same word)|눈이 와요.|It's snowing.
+vocab|몸|body|noun|몸이 안 좋아요.|I don't feel well.
+vocab|마음|heart, mind|noun|마음이 편해요.|I feel at ease.
+vocab|손|hand|noun|손을 씻으세요.|Wash your hands.
+vocab|문|door|noun|문을 닫아 주세요.|Please close the door.
+vocab|열다|to open|verb|창문을 열어도 돼요?|May I open the window?
+vocab|닫다|to close|verb|가게가 일찍 문을 닫아요.|The store closes early.
+vocab|길|road, way|noun|길을 잃었어요.|I got lost.
+vocab|나가다|to go out|verb|잠깐 나갔다 올게요.|I'll step out for a moment.
+vocab|들어가다|to go in, enter|verb|안으로 들어가세요.|Please go inside.
+vocab|학교|school|noun|학교가 멀어요.|School is far away.
+vocab|사진|photo|noun|사진 좀 찍어 주세요.|Please take a picture for me.
+vocab|전화|phone, phone call|noun|나중에 전화할게요.|I'll call you later.
+vocab|핸드폰|cell phone|noun|핸드폰을 잃어버렸어요.|I lost my phone.
+vocab|영화|movie|noun|영화 보러 갈래요?|Want to go see a movie?
+vocab|음악|music|noun|어떤 음악을 좋아해요?|What kind of music do you like?
+vocab|노래|song|noun|이 노래 알아요?|Do you know this song?
+vocab|새|new (before a noun)|determiner|새 컴퓨터를 샀어요.|I bought a new computer.
+vocab|싫다|to dislike, to not want|adjective|비 오는 날이 싫어요.|I don't like rainy days.
+vocab|어떻다|to be how|adjective; 어때요? = how is it?|이거 어때요?|How about this one?

@@ -1,0 +1,73 @@
+# deck|korean|meaning|hint|example_ko|example_en   (order = introduction order)
+# Stage 1: the six basic vowels, then the consonants, so you can read syllables within days.
+hangul|ㅏ|a|as in "father"|아빠|appa — dad
+hangul|ㅓ|eo|like "u" in "sun", jaw open|어머니|eomeoni — mother
+hangul|ㅗ|o|as in "go", lips rounded|오이|oi — cucumber
+hangul|ㅜ|u|as in "moon"|우유|uyu — milk
+hangul|ㅡ|eu|say "oo" while smiling (lips flat)|크다|keuda — to be big
+hangul|ㅣ|i|as in "see"|이|i — tooth / this / two
+hangul|ㄱ|g / k|기역 giyeok — "g" starting a syllable, "k" at the end|가방|gabang — bag
+hangul|ㄴ|n|니은 nieun|나무|namu — tree
+hangul|ㄷ|d / t|디귿 digeut|다리|dari — leg / bridge
+hangul|ㄹ|r / l|리을 rieul — "r" between vowels, "l" at the end|라면|ramyeon — instant noodles
+hangul|ㅁ|m|미음 mieum|머리|meori — head / hair
+hangul|ㅂ|b / p|비읍 bieup|바다|bada — sea
+hangul|ㅅ|s|시옷 siot — "sh" before ㅣ|사람|saram — person
+hangul|ㅇ|silent / ng|이응 ieung — silent at the start of a syllable, "ng" at the end|아이|ai — child
+hangul|ㅈ|j|지읒 jieut|자다|jada — to sleep
+hangul|ㅊ|ch|치읓 chieut — ㅈ plus a puff of air|차|cha — car / tea
+hangul|ㅋ|k (aspirated)|키읔 kieuk — ㄱ plus a puff of air|코|ko — nose
+hangul|ㅌ|t (aspirated)|티읕 tieut — ㄷ plus a puff of air|토마토|tomato — tomato
+hangul|ㅍ|p (aspirated)|피읖 pieup — ㅂ plus a puff of air|피자|pija — pizza
+hangul|ㅎ|h|히읗 hieut|하나|hana — one
+# Stage 2: y-vowels (an extra stroke = add a "y")
+hangul|ㅑ|ya|ㅏ + extra stroke|야구|yagu — baseball
+hangul|ㅕ|yeo|ㅓ + extra stroke|여자|yeoja — woman
+hangul|ㅛ|yo|ㅗ + extra stroke|요리|yori — cooking
+hangul|ㅠ|yu|ㅜ + extra stroke|유리|yuri — glass
+# Stage 3: tense (double) consonants — tight throat, no puff of air
+hangul|ㄲ|kk|쌍기역 ssang-giyeok — tense ㄱ|까치|kkachi — magpie
+hangul|ㄸ|tt|쌍디귿 ssang-digeut — tense ㄷ|딸기|ttalgi — strawberry
+hangul|ㅃ|pp|쌍비읍 ssang-bieup — tense ㅂ|빵|ppang — bread
+hangul|ㅆ|ss|쌍시옷 ssang-siot — tense ㅅ|싸다|ssada — to be cheap
+hangul|ㅉ|jj|쌍지읒 ssang-jieut — tense ㅈ|짜다|jjada — to be salty
+# Stage 4: combined vowels
+hangul|ㅐ|ae|like "e" in "bed"|개|gae — dog
+hangul|ㅔ|e|like "e" in "bed" (sounds the same as ㅐ today)|게|ge — crab
+hangul|ㅒ|yae|y + ㅐ (rare)|얘기|yaegi — talk, story
+hangul|ㅖ|ye|y + ㅔ|예|ye — yes (formal)
+hangul|ㅘ|wa|ㅗ + ㅏ|과자|gwaja — snack
+hangul|ㅙ|wae|ㅗ + ㅐ|왜|wae — why
+hangul|ㅚ|oe|ㅗ + ㅣ, pronounced "we"|회사|hoesa — company
+hangul|ㅝ|wo|ㅜ + ㅓ|뭐|mwo — what
+hangul|ㅞ|we|ㅜ + ㅔ (rare)|웨이터|weiteo — waiter
+hangul|ㅟ|wi|ㅜ + ㅣ|귀|gwi — ear
+hangul|ㅢ|ui|ㅡ + ㅣ|의사|uisa — doctor
+# Stage 5: syllable blocks and final consonants (batchim)
+hangul|가|ga|consonant + vertical vowel sit side by side|가다|gada — to go
+hangul|고|go|a horizontal vowel sits underneath the consonant|고기|gogi — meat
+hangul|한|han|ㅎ + ㅏ + final ㄴ: the final consonant (batchim) goes on the bottom|한국|hanguk — Korea
+hangul|글|geul|ㄱ + ㅡ + final ㄹ; 한글 = Hangul|한글|hangeul — the Korean alphabet
+hangul|밥|bap|final ㅂ is an unreleased "p"|밥|bap — rice / meal
+hangul|옷|ot|final ㅅ sounds like an unreleased "t"|옷|ot — clothes
+hangul|꽃|kkot|final ㅊ also sounds like "t"|꽃|kkot — flower
+hangul|강|gang|final ㅇ = "ng"|강|gang — river
+hangul|닭|dak|two final consonants (ㄺ): only one is pronounced|닭|dak — chicken
+hangul|음악|eumak|a final consonant slides into a next syllable that starts with ㅇ (eu-mak)|음악|eumak — music
+hangul|한국어|hangugeo|ㄱ slides over: han-gu-geo|한국어|hangugeo — Korean language
+# Stage 6: read real words (loanwords — you already know the meaning, just decode the sounds)
+hangul|커피|coffee|keopi|커피 주세요.|Coffee, please.
+hangul|게임|game|geim|게임 좋아해요?|Do you like games?
+hangul|컴퓨터|computer|keompyuteo|컴퓨터가 느려요.|The computer is slow.
+hangul|버스|bus|beoseu|버스를 타요.|I take the bus.
+hangul|택시|taxi|taeksi|택시를 불러 주세요.|Please call a taxi.
+hangul|피아노|piano|piano|피아노를 쳐요.|I play the piano.
+hangul|바나나|banana|banana|바나나 하나 주세요.|One banana, please.
+hangul|카메라|camera|kamera|새 카메라를 샀어요.|I bought a new camera.
+hangul|호텔|hotel|hotel|호텔이 어디예요?|Where is the hotel?
+hangul|인터넷|internet|inteonet|인터넷이 안 돼요.|The internet isn't working.
+hangul|햄버거|hamburger|haembeogeo|햄버거 먹을래요?|Want to eat a burger?
+hangul|아이스크림|ice cream|aiseukeurim|아이스크림 좋아해요.|I like ice cream.
+hangul|스마트폰|smartphone|seumateupon|스마트폰을 너무 많이 봐요.|I look at my smartphone too much.
+hangul|헬스장|gym|helseujang — from "health"|헬스장에 가요.|I'm going to the gym.
+hangul|유튜브|YouTube|yutyubeu|유튜브로 한국어를 공부해요.|I study Korean with YouTube.

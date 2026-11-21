@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reader · Personal Helper</title>
+<style>
+:root { --bg:#f5f6f8; --card:#fff; --card2:#f0f2f5; --fg:#111827; --muted:#6b7280; --line:#e3e6ea; --accent:#2563eb;
+  --good:#15803d; --bad:#b91c1c; --bad-bg:#fee2e2; --warn:#b45309; --warn-bg:#fef3c7; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --bg:#0f1115; --card:#181b21; --card2:#20242c; --fg:#e8eaed; --muted:#9aa0a6;
+  --line:#2a2f37; --accent:#60a5fa; --good:#4ade80; --bad:#f87171; --bad-bg:#3a1717; --warn:#fbbf24; --warn-bg:#3a2e10; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 "Segoe UI", system-ui, sans-serif; }
+main { max-width:960px; margin:0 auto; padding:20px 16px 60px; }
+a { color:var(--accent); text-decoration:none; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; }
+.grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit, minmax(min(260px,100%),1fr)); margin-top:14px; }
+textarea { width:100%; font:inherit; color:var(--fg); background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:8px 10px; }
+button { font:inherit; font-weight:600; border:1px solid var(--accent); background:var(--accent); color:#fff; padding:8px 16px; border-radius:10px; cursor:pointer; }
+.muted { color:var(--muted); } .small { font-size:13px; } .big { font-size:30px; font-weight:700; }
+.bar { height:8px; background:var(--card2); border-radius:99px; overflow:hidden; } .bar > div { height:100%; }
+.pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:13px; font-weight:600; margin:2px; }
+.no { background:var(--bad-bg); color:var(--bad); } .wn { background:var(--warn-bg); color:var(--warn); }
+.text { font-size:22px; line-height:2; margin-top:14px; }
+.w { padding:1px 2px; border-radius:4px; } .w.unknown { background:var(--bad-bg); } .w.skip { color:var(--muted); }
+a.w { color:inherit; }
+</style>
+</head>
+<body><main>
+<h1>Reader {% if web %}<a class="small" href="{{ web }}/">← dashboard</a>{% endif %}</h1>
+{% if not connected %}<p class="pill no">Not connected to Firebase — every word will show as unknown. See README.</p>{% endif %}
+<form method="post" class="card">
+  <p class="small muted" style="margin-top:0">Paste Korean text (lyrics, a webtoon page, news, game dialogue). You'll see how much
+    of it you already know. Click a <span class="w unknown">red word</span> to add it with its sentence.</p>
+  <textarea name="text" rows="6" lang="ko" placeholder="여기에 한국어 텍스트를 붙여 넣으세요…">{{ text }}</textarea>
+  <p><button>Analyze</button></p>
+</form>
+{% if result %}
+<div class="grid">
+  <div class="card"><h2 style="margin-top:0">Coverage</h2>
+    <div class="big">{{ (result.coverage * 100)|round(1) }}%</div>
+    <div class="bar"><div style="width:{{ result.coverage * 100 }}%;background:var(--{{ 'good' if result.coverage >= 0.95 else ('warn' if result.coverage >= 0.85 else 'bad') }})"></div></div>
+    <p class="small">{{ result.verdict }}</p>
+    <p class="small muted">Readers need ~95% known words to follow a text and ~98% to read comfortably (Hu &amp; Nation, 2000).
+      {{ result.content_words }} words counted; names, numbers and particles are ignored.</p></div>
+  <div class="card"><h2 style="margin-top:0">Unknown words</h2>
+    {% for u in result.unknown[:25] %}<a class="pill {{ 'wn' if u.in_deck else 'no' }}" target="_blank" href="{{ add_link(u.lemma) }}">{{ u.lemma }}{% if u.count > 1 %} ×{{ u.count }}{% endif %}</a>
+    {% else %}<p class="muted">None — great.</p>{% endfor %}
+    <p class="small muted">Yellow = already in your deck (coming up soon). Start with the words that repeat.</p></div>
+</div>
+<div class="card text" lang="ko">
+  {% for para in result.paragraphs %}<p>{% for sent in para %}{% for w in sent.words %}{% if w.status == 'unknown' and web %}<a class="w unknown" target="_blank"
+    href="{{ add_link(w.unknown[0], sent.text) }}" title="{{ w.lemmas|join(', ') }}">{{ w.text }}</a>{% else %}<span class="w {{ w.status }}" title="{{ w.lemmas|join(', ') }}">{{ w.text }}</span>{% endif %} {% endfor %}{% endfor %}</p>{% endfor %}
+</div>
+{% endif %}
+</main></body></html>

@@ -1,0 +1,13 @@
+# Cloudflare Worker that receives watch data from the HC Webhook Android app (see worker.js).
+# Deploy from this folder:
+#   npx wrangler login
+#   npx wrangler secret put FIREBASE_SA     (paste the Firebase service account key JSON)
+#   npx wrangler secret put HC_TOKEN        (paste a long random string; the phone app sends it as a Bearer token)
+#   npx wrangler deploy
+name = "personal-helper-relay"
+main = "worker.js"
+compatibility_date = "2025-10-01"
+
+[vars]
+# Your Firebase Auth uid (shown on the web app's Settings page after you sign in).
+OWNER_UID = "REPLACE_WITH_YOUR_UID"
