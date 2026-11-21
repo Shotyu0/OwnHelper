@@ -3,20 +3,28 @@ import { summarize, heartSeries, exerciseName } from '../activity.js';
 import { esc, lineChart, bars } from '../ui.js';
 import { watchCounts } from '../workout.js';
 import { stepPlan, stepGoalNow, fmtWeight } from '../targets.js';
+import { openWalk, cadence, walksFor } from '../walks.js';
+import { walkButton, walkLines, bindWalk } from '../walk-ui.js';
 
 export async function render(main, ctx, params) {
   const { store, settings } = ctx;
   const day = params.day || calendarDay(ctx.now());
   const from = addDays(day, -29);
-  const [doc, exercises, daily, plan, body] = await Promise.all([
+  const [doc, exercises, daily, plan, body, walk, cad] = await Promise.all([
     store.get('activity', day),
     store.query('exercises', { where: [['day', '>=', addDays(day, -13)]] }),
     store.query('daily', { where: [['day', '>=', from]] }),
     stepPlan(store, settings, calendarDay(ctx.now())),
     store.get('meta', 'body'),
+    openWalk(store),
+    cadence(store),
   ]);
+  const isToday = day === calendarDay(ctx.now());
   const todays = exercises.filter(x => x.day === day);
-  const s = summarize(doc, todays);
+  const byDayDoc = daily.find(d => d.day === day);
+  const walks = walksFor(byDayDoc, isToday ? walk : null, ctx.now(), cad);
+  const s = summarize(doc, todays, walks);
+  const lines = walkLines(walks);
   const goal = stepGoalNow(settings, plan);
   const byDay = Object.fromEntries(daily.map(d => [d.day, d]));
   const stepBars = [];
@@ -40,7 +48,10 @@ export async function render(main, ctx, params) {
       <div class="card"><h2>Steps</h2><div class="big">${s.steps.toLocaleString()}</div>
         <div class="bar"><div style="width:${Math.min(100, (s.steps / goal) * 100)}%;background:var(--good)"></div></div>
         <p class="small muted">Goal ${goal.toLocaleString()}${settings.activity.stepGoalAuto && plan.target ? `, rising toward ${plan.target.toLocaleString()} as you hit it`
-          : ''} (<a href="#/plan">Plan</a> explains). ${byDay[day]?.moveNudges ? `Desk breaks: got up after ${byDay[day].moveBreaks || 0} of ${byDay[day].moveNudges} nudges.` : ''}</p></div>
+          : ''} (<a href="#/plan">Plan</a> explains). ${byDay[day]?.moveNudges ? `Desk breaks: got up after ${byDay[day].moveBreaks || 0} of ${byDay[day].moveNudges} nudges.` : ''}</p>
+        ${lines.length || walk ? `<p class="small">Treadmill: ${lines.map(l => `<br>${l}`).join('')}${isToday && walk ? '<br>walking now…' : ''}
+          <br><span class="muted">The watch saw ${s.watchSteps.toLocaleString()}; it misses most treadmill steps when your hands rest on the desk.</span></p>` : ''}
+        ${isToday && settings.moveBreaks.treadmill ? `<p id="walkbtn" class="m0">${walkButton(walk, ctx.now())}</p>` : ''}</div>
       <div class="card"><h2>Active</h2><div class="big">${s.activeMinutes}<span class="muted unit"> min</span></div>
         <p class="small">${s.kcal ? `${s.kcal} active kcal · ` : ''}${s.km ? `${s.km.toFixed(1)} km` : ''}</p>
         <p class="small muted">Recorded workouts. Guidelines: 150+ min of moderate activity a week, plus strength training twice a week.</p></div>
@@ -60,4 +71,5 @@ export async function render(main, ctx, params) {
         </table>` : '<p class="muted small">None yet.</p>'}
       <p class="small muted">Watch workouts of ${settings.activity.watchWorkoutMinMinutes}+ min (not walks) count toward the workout gate
         (change in Settings).</p></div>`;
+  bindWalk(main.querySelector('#walkbtn'), ctx, () => render(main, ctx, params));
 }

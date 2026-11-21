@@ -8,7 +8,9 @@
    of play)                   within 60 s the game is closed, and stays closed until it is
   override                 -> 60 s wait + written reason; logged on the dashboard; limited per day
   at the desk 30 min       -> a small nudge to get up and walk for a few minutes (not while gaming); with a
-                              treadmill desk: walk while working, and "Walking now" pauses nudges for a while
+                              treadmill desk: walk while working. "Walking now" (or Ctrl+Alt+W) logs a treadmill
+                              walk with a small timer + Stop, because the watch barely counts steps when your
+                              hands rest on the desk (helper/walks.py)
 
 Rules and data come from Firestore (helper/gaming/rules.py). Sessions can also be requested from the
 web app; the guardian checks them against the same rules and publishes its status for the web app.
@@ -16,19 +18,21 @@ web app; the guardian checks them against the same rules and publishes its statu
 from __future__ import annotations
 
 import ctypes
+import ctypes.wintypes
 import logging
 import queue
 import sys
+import threading
 import time
 import tkinter as tk
 import webbrowser
 
 import psutil
 
-from .. import config
+from .. import config, walks
 from ..cloud import Increment
 from ..gaming.rules import Rules, RuleError, now_ms
-from ..settings import with_defaults
+from ..settings import day_start, with_defaults
 from . import detect
 
 TICK_MS = 2500
@@ -63,6 +67,24 @@ def idle_seconds() -> float:
     if not ctypes.windll.user32.GetLastInputInfo(ctypes.byref(li)):
         return 0.0
     return ((ctypes.windll.kernel32.GetTickCount() - li.dwTime) & 0xFFFFFFFF) / 1000.0
+
+
+WALK_IDLE_END_S = 10 * 60      # away from the PC this long during a walk: it ended when you left
+WALK_ASK_TIMEOUT_S = 5 * 60     # "still walking?" unanswered this long: ended when asked
+
+
+def hotkey_thread(events: queue.Queue) -> None:
+    """Ctrl+Alt+W anywhere toggles a treadmill walk (Windows global hotkey on its own message loop)."""
+    if sys.platform != "win32":
+        return
+    user32 = ctypes.windll.user32
+    if not user32.RegisterHotKey(None, 1, 0x2 | 0x1 | 0x4000, ord("W")):   # CONTROL | ALT | NOREPEAT
+        log.warning("Ctrl+Alt+W is already used by another app; start walks from the web app instead.")
+        return
+    msg = ctypes.wintypes.MSG()
+    while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+        if msg.message == 0x0312:   # WM_HOTKEY
+            events.put("walk")
 
 
 def plan_text(items) -> str:
@@ -127,9 +149,20 @@ class Guardian:
         self.sit_start: float | None = None
         self.nudge_at: float | None = None
         self.snooze_until = 0.0
-        self.walking_until = 0.0
         self.sit_reset = False
         self.nudges_shown = 0
+        # treadmill walks (helper/walks.py)
+        self.walk: dict | None = None
+        self.walk_bar: tk.Toplevel | None = None
+        self.walk_bar_mode = ""
+        self.walk_check_at: float | None = None
+        self.walk_asking_since: float | None = None
+        self.walk_stopping = False
+        self.hotkeys: queue.Queue = queue.Queue()
+        # gate inputs that change while you study/train today -> re-check the gate right away
+        self.gate_day = ""
+        self.gate_unsubs: list = []
+        self.daily_key = None
         self.warned: set[tuple] = set()
         self.closing_until: float | None = None
         self.closing_next_action = ""
@@ -143,6 +176,7 @@ class Guardian:
             store.watch_query("sessions", [("open", "==", True)], self._on_sessions),
             store.watch_query("sessionRequests", [("status", "==", "pending")], self._on_requests),
             store.watch_query("snacks", [("at", ">=", clock() - 864e5)], self._on_sets),
+            store.watch_doc("meta", "walk", self._on_walk),
         ]
         log.info("Guardian started. Steam libraries: %s, games known: %d", self.lib.commons, len(self.lib.apps))
 
@@ -162,6 +196,38 @@ class Guardian:
     def _on_sets(self, docs):
         self.dirty = True
         self.sit_reset = True    # a set means you got up
+
+    def _on_walk(self, doc):
+        self.walk = doc if doc and doc.get("start") else None
+
+    def _on_daily(self, doc):
+        # Korean answers and steps change the gate. Only those fields: the guardian writes this doc too
+        # (gameMinutes, nudge counts), and reacting to its own writes would loop.
+        key = tuple((doc or {}).get(k) for k in ("reviews", "newCards", "steps"))
+        if key != self.daily_key:
+            self.daily_key = key
+            self.dirty = True
+
+    def _on_gate_change(self, _docs):
+        self.dirty = True
+
+    def _watch_gate(self) -> None:
+        """Listen to today's workouts, watch workouts and Korean progress; re-subscribe when the day rolls over."""
+        today = self.rules.today()
+        if today == self.gate_day:
+            return
+        for u in self.gate_unsubs:
+            try:
+                u()
+            except Exception:
+                pass
+        self.gate_day = today
+        start = day_start(today, self.rules.hour)
+        self.gate_unsubs = [
+            self.store.watch_doc("daily", today, self._on_daily),
+            self.store.watch_query("workouts", [("day", "==", today)], self._on_gate_change),
+            self.store.watch_query("exercises", [("start", ">=", start)], self._on_gate_change),
+        ]
 
     @property
     def cfg(self) -> dict:
@@ -194,6 +260,7 @@ class Guardian:
 
     # ------------------------------------------------------------------ main loop
     def run(self) -> None:
+        threading.Thread(target=hotkey_thread, args=(self.hotkeys,), daemon=True, name="hotkey").start()
         self.root.after(500, self._tick)
         self.root.after(800, lambda: self._toast("Personal Helper is on — games run inside sessions.", GOOD, seconds=5))
         self.root.mainloop()
@@ -212,6 +279,13 @@ class Guardian:
             req = self.requests.get_nowait()
             self.rules.handle_request(req)
             self.dirty = True
+        while not self.hotkeys.empty():
+            self.hotkeys.get_nowait()
+            self._toggle_walk()
+        try:
+            self._watch_gate()
+        except Exception:
+            log.exception("gate watch failed")
         try:
             self._publish()          # decide on fresh status (sets logged from the phone, settings, sessions)
         except Exception:
@@ -341,10 +415,16 @@ class Guardian:
     # ------------------------------------------------------------------ get-up nudges while working
     def _move_check(self, in_session: bool) -> None:
         m = self.rules.settings.get("moveBreaks") or {}
+        t, idle = time.time(), idle_seconds()
+        if self.walk:
+            self._walk_tick(m, t, idle)
+            return
+        if self.walk_bar is not None:            # stopped elsewhere (e.g. the web app)
+            self._destroy("walk_bar")
+            self.sit_start = t
         if not m.get("enabled"):
             self._destroy("nudge_win")
             return
-        t, idle = time.time(), idle_seconds()
         if self.sit_reset:
             self.sit_reset = False
             self.sit_start = t
@@ -356,10 +436,6 @@ class Guardian:
             return
         if self.sit_start is None:
             self.sit_start = t - idle
-        if self.walking_until:
-            if t < self.walking_until:
-                return                                # walking at the treadmill desk
-            self.sit_start, self.walking_until = self.walking_until, 0.0
         if in_session or self.nudge_win is not None or t < self.snooze_until:
             return
         if t - self.sit_start >= float(m.get("everyMinutes", 30)) * 60:
@@ -367,12 +443,119 @@ class Guardian:
             self._count("moveNudges")
             self._open_nudge(m)
 
-    def _walking_now(self, minutes: float) -> None:
-        """'Walking now' on the treadmill-desk nudge: no nudges while you walk, then the sitting clock restarts."""
-        self.walking_until = time.time() + minutes * 60
+    # ------------------------------------------------------------------ treadmill walks
+    def _start_walk(self, src: str = "pc") -> None:
+        walks.start_walk(self.store, self.clock(), src)
+        self.walk = {"start": self.clock(), "src": src}
+        self.walk_check_at, self.walk_asking_since = time.time(), None
+        if self.nudge_at is not None:
+            self._count("moveBreaks")             # walked after a nudge
         self.nudge_at = None
-        self._count("moveBreaks")
         self._destroy("nudge_win")
+
+    def _toggle_walk(self) -> None:
+        if self.walk:
+            if not self.walk_stopping:
+                self._stop_walk_dialog()
+        else:
+            self._start_walk("pc")
+            self._toast("Treadmill walk started. Ctrl+Alt+W again (or Stop) when you sit down.", GOOD, seconds=5)
+
+    def _walk_tick(self, m: dict, t: float, idle: float) -> None:
+        self._destroy("nudge_win")
+        if self.walk_stopping:
+            return
+        if self.walk_check_at is None:
+            self.walk_check_at = t
+        if idle >= WALK_IDLE_END_S:
+            self._end_walk(self.clock() - idle * 1000, note="You were away from the PC, so it ends when you left.")
+            return
+        if self.walk_asking_since is None and t - self.walk_check_at >= float(m.get("walkCheckMinutes", 30)) * 60:
+            self.walk_asking_since = t
+            _beep()
+        if self.walk_asking_since is not None and t - self.walk_asking_since >= WALK_ASK_TIMEOUT_S:
+            self._end_walk(self.clock() - (t - self.walk_asking_since) * 1000,
+                           note="No answer to \"still walking?\", so it ends when I asked.")
+            return
+        self._show_walk_bar()
+
+    def _end_walk(self, end: float, steps: int | None = None, note: str = "") -> None:
+        try:
+            r = walks.stop_walk(self.store, self.clock(), end=end, steps=steps)
+        except Exception:
+            log.exception("saving the walk failed")
+            r = None
+        self.walk = None
+        self.walk_check_at = self.walk_asking_since = None
+        self.walk_stopping = False
+        self._destroy("walk_bar")
+        self.sit_start, self.nudge_at = time.time(), None
+        if r:
+            self._toast(f"Treadmill walk logged: {r['minutes']:.0f} min, {r['steps']:,} steps"
+                        f"{' (estimated)' if r['est'] else ''}. {note}".strip(), GOOD, seconds=10)
+
+    def _show_walk_bar(self) -> None:
+        mins = max(0, int((self.clock() - self.walk["start"]) / 60000))
+        mode = "ask" if self.walk_asking_since is not None else "walk"
+        if self.walk_bar is not None and self.walk_bar_mode == mode:
+            try:
+                self.walk_bar.children["label"].config(text=self._walk_text(mins, mode))
+                return
+            except (KeyError, tk.TclError):
+                pass
+        self._destroy("walk_bar")
+        self.walk_bar_mode = mode
+        b = self.walk_bar = tk.Toplevel(self.root, bg=WARN if mode == "ask" else GOOD)
+        b.overrideredirect(True)
+        b.attributes("-topmost", True)
+        tk.Label(b, name="label", text=self._walk_text(mins, mode), bg=CARD, fg=FG, font=(FONT, 10, "bold"),
+                 padx=12, pady=8).pack(side="left", padx=(4, 0))
+        if mode == "ask":
+            def still():
+                self.walk_check_at, self.walk_asking_since = time.time(), None
+                self._destroy("walk_bar")
+            self._button(b, "Still walking", still, primary=True)
+        self._button(b, "Stop", self._stop_walk_dialog, primary=mode != "ask")
+        b.update_idletasks()
+        b.geometry(f"+{b.winfo_screenwidth() - b.winfo_reqwidth() - 24}+{b.winfo_screenheight() - b.winfo_reqheight() - 80}")
+        _no_activate(b)
+
+    @staticmethod
+    def _walk_text(mins: int, mode: str) -> str:
+        return f"Still walking? ({mins} min so far)" if mode == "ask" else f"Treadmill walk · {mins} min"
+
+    def _stop_walk_dialog(self) -> None:
+        if not self.walk or self.walk_stopping:
+            return
+        end = self.clock()
+        self.walk_stopping = True
+        self._destroy("walk_bar")
+        mins = (end - self.walk["start"]) / 60000
+        guess = round(mins * walks.cadence(self.store))
+        w = self._window("Walk done")
+        self._label(w, f"Walked {mins:.0f} min", 16, bold=True)
+        self._label(w, "Steps shown on the treadmill (optional, makes the count exact and teaches the estimate "
+                       "your pace):", 10, MUTED)
+        entry = tk.Entry(w, font=(FONT, 12), bg=CARD, fg=FG, insertbackground=FG, relief="flat", width=12)
+        entry.pack(anchor="w", ipady=4, pady=(4, 10))
+        btns = tk.Frame(w, bg=BG)
+        btns.pack(fill="x")
+
+        def done(use_entry: bool):
+            raw = entry.get().replace(",", "").strip() if use_entry else ""
+            try:
+                w.destroy()
+            except tk.TclError:
+                pass
+            self._end_walk(end, steps=int(raw) if raw.isdigit() else None)
+
+        self._button(btns, "Save", lambda: done(True), primary=True)
+        self._button(btns, f"Estimate (~{guess:,})", lambda: done(False))
+        w.protocol("WM_DELETE_WINDOW", lambda: done(False))
+        w.bind("<Return>", lambda e: done(True))
+        w.bind("<Escape>", lambda e: done(False))
+        self._show(w)
+        entry.focus_set()
 
     def _count(self, field: str) -> None:
         today = self.rules.today()
@@ -400,7 +583,8 @@ class Guardian:
         tk.Label(inner, text=title, bg=CARD, fg=FG, font=(FONT, 12, "bold"), justify="left").pack(anchor="w")
         tk.Label(inner, text=body, bg=CARD, fg=FG, font=(FONT, 10), wraplength=340,
                  justify="left").pack(anchor="w", pady=(4, 2))
-        tk.Label(inner, text="Standing still doesn't count: the benefit comes from walking." if treadmill
+        tk.Label(inner, text="Standing still doesn't count: the benefit comes from walking. Ctrl+Alt+W starts or stops a "
+                 "walk any time." if treadmill
                  else "This closes by itself once you've been away a few minutes.", bg=CARD, fg=MUTED,
                  font=(FONT, 9), wraplength=340, justify="left").pack(anchor="w", pady=(0, 8))
         row = tk.Frame(inner, bg=CARD)
@@ -412,7 +596,7 @@ class Guardian:
             self._destroy("nudge_win")
 
         if treadmill:
-            self._button(row, "Walking now", lambda: self._walking_now(walk), primary=True)
+            self._button(row, "Walking now", lambda: self._start_walk("pc"), primary=True)
         else:
             self._button(row, "Going now", lambda: later(10), primary=True)
         self._button(row, f"Snooze {snooze} min", lambda: later(snooze))
@@ -508,7 +692,7 @@ class Guardian:
         t.after(seconds * 1000, close)
 
     # ------------------------------------------------------------------ session dialog
-    def _open_session_dialog(self, game: detect.GameProc, already_running: bool = False) -> None:
+    def _open_session_dialog(self, game: detect.GameProc, already_running: bool = False, prefill=None) -> None:
         if self.session_dlg is not None and self.session_dlg.winfo_exists():
             return
         try:
@@ -517,6 +701,7 @@ class Guardian:
             log.exception("status failed")
             self._toast("Can't reach Firebase, so no session can start. Check the internet connection.", BAD)
             return
+        self.st = st   # the dialog follows later updates of self.st (see recheck below)
         w = self.session_dlg = self._window("Start a gaming session")
         w.protocol("WM_DELETE_WINDOW", lambda: self._destroy("session_dlg"))
         if already_running:
@@ -546,6 +731,8 @@ class Guardian:
         choices = st["choices"] or [self.cfg["overrideExtendMinutes"]]
         self._label(w, "How long?", 11, bold=True)
         minutes = tk.IntVar(value=choices[0] if choices[0] == 0 else choices[min(1, len(choices) - 1)])
+        if prefill and prefill[1] in choices:
+            minutes.set(prefill[1])
         row = tk.Frame(w, bg=BG)
         row.pack(fill="x", pady=(0, 10))
         for m in choices:
@@ -555,6 +742,8 @@ class Guardian:
         self._label(w, "Right after, I will:", 11, bold=True)
         nxt = tk.Entry(w, font=(FONT, 11), bg=CARD, fg=FG, insertbackground=FG, relief="flat")
         nxt.pack(fill="x", ipady=5, pady=(0, 4))
+        if prefill and prefill[0]:
+            nxt.insert(0, prefill[0])
         self._label(w, "e.g. \"go to bed\", \"make dinner\", \"30 min of Korean reading\"", 9, MUTED)
         err = self._label(w, "", 10, BAD)
 
@@ -596,6 +785,27 @@ class Guardian:
         self._button(btns, "Not now", lambda: self._destroy("session_dlg"))
         self._show(w)
         nxt.focus_set()
+
+        # Finish the workout or the Korean with this open, and it updates itself (no need to relaunch the game).
+        shown = tuple(st["blockers"])
+
+        def recheck():
+            if self.session_dlg is not w or not w.winfo_exists():
+                return
+            cur = tuple((self.st or {}).get("blockers") or ())
+            if cur != shown:
+                try:
+                    keep = (nxt.get(), minutes.get())
+                except tk.TclError:
+                    return
+                self._destroy("session_dlg")
+                self._open_session_dialog(game, already_running, prefill=keep)
+                if not cur:
+                    _beep()
+                return
+            w.after(1000, recheck)
+
+        w.after(1000, recheck)
 
     # ------------------------------------------------------------------ override dialog
     def _open_override(self, action: str, on_confirm) -> None:

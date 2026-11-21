@@ -18,16 +18,32 @@ export function sumIntervals(map = {}) {
   return bySource.size ? Math.max(...bySource.values()) : 0;
 }
 
+/**
+ * Steps including treadmill-desk walks (walks.js). Inside a walk the watch undercounts (hands on the desk), so
+ * watch records are trimmed by how much of them falls inside a walk, and the walk's own steps are added.
+ */
+export function stepsWithWalks(stepMap = {}, walks = {}) {
+  const ws = Object.values(walks || {}).filter(w => w && w.e > w.s);
+  if (!ws.length) return sumIntervals(stepMap);
+  const inside = (s, e) => ws.reduce((n, w) => n + Math.max(0, Math.min(e, w.e) - Math.max(s, w.s)), 0);
+  const trimmed = Object.fromEntries(Object.entries(stepMap || {}).map(([k, v]) => {
+    const f = v.e > v.s ? Math.min(1, inside(v.s, v.e) / (v.e - v.s)) : ws.some(w => v.s >= w.s && v.s < w.e) ? 1 : 0;
+    return [k, { ...v, c: v.c * (1 - f) }];
+  }));
+  return sumIntervals(trimmed) + ws.reduce((n, w) => n + (w.steps || 0), 0);
+}
+
 export function heartSeries(doc) {
   return Object.entries(doc?.hr || {})
     .map(([k, [avg, min, max]]) => ({ minute: +k.slice(1, 3) * 60 + +k.slice(3, 5), avg, min, max }))
     .sort((a, b) => a.minute - b.minute);
 }
 
-export function summarize(doc, exercises = []) {
+export function summarize(doc, exercises = [], walks = null) {
   const hr = heartSeries(doc);
   return {
-    steps: Math.round(sumIntervals(doc?.steps)),
+    steps: Math.round(stepsWithWalks(doc?.steps, walks)),
+    watchSteps: Math.round(sumIntervals(doc?.steps)),
     kcal: Math.round(sumIntervals(doc?.cal)),
     km: sumIntervals(doc?.dist) / 1000,
     restingHr: hr.length ? Math.min(...hr.map(x => x.min)) : null,

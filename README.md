@@ -86,7 +86,11 @@ then Right Alt toggles 한/A. On Android, add Korean in Gboard / Samsung Keyboar
    phone). The watch checks each set afterwards for a heart-rate rise.
 5. **At the desk**: after 30 minutes at the PC, a small nudge to get up and walk for 3–5 minutes. It clears
    itself once the PC sees you've been away for 3 minutes. Not shown while gaming. With a treadmill under the
-   desk (Settings), it asks you to walk while you work instead, and "Walking now" pauses it for 15 minutes.
+   desk (Settings), it asks you to walk while you work instead. "Walking now" (or **Ctrl+Alt+W**, or the button on
+   Today) logs a **treadmill walk**: a small timer with Stop, an optional treadmill step reading at the end, and a
+   "still walking?" check every 30 min. A wrist watch barely counts steps when your hands rest on the desk (wrist
+   trackers undercount with no arm swing), so inside a walk the walk's steps replace the watch's. Typed-in readings
+   teach the estimate your pace (85 steps/min to start).
    Walk rather than just stand: standing more didn't lower heart-disease risk (Ahmadi et al. 2024).
 6. **Plan** shows your targets (steps, protein, weight change, Korean, sets) with the reasons and sources.
    Add your birth year and weight there; recent watch readings take over automatically.

@@ -115,3 +115,38 @@ test('30-minute lunch sessions: supersets, upper/lower alternate, progress share
   assert.equal(W.workoutStatus({ settings: s, today: '2026-11-23', workouts: [], watchSessions: [] }).satisfied, false);
   assert.equal(W.dayLabel('gym30'), 'lunch gym (30 min)');
 });
+
+test('treadmill walks replace the watch undercount inside their window', async () => {
+  const { stepsWithWalks } = await import('../../web/js/activity.js');
+  const H = 3600e3, t0 = Date.UTC(2026, 10, 21, 14);
+  const watch = {                       // one source: 1,000 steps 14:00-15:00, 200 steps 15:00-16:00
+    r_a: { c: 1000, s: t0, e: t0 + H, o: 'fitbit' },
+    r_b: { c: 200, s: t0 + H, e: t0 + 2 * H, o: 'fitbit' },
+  };
+  assert.equal(stepsWithWalks(watch, {}), 1200);
+  const walks = { w: { s: t0 + H, e: t0 + 2 * H, steps: 5100 } };   // the 15:00 hour was a treadmill walk
+  assert.equal(stepsWithWalks(watch, walks), 1000 + 5100);
+  const half = { w: { s: t0 + 1.5 * H, e: t0 + 2 * H, steps: 2500 } };
+  assert.equal(stepsWithWalks(watch, half), 1000 + 100 + 2500);
+});
+
+test('walks: start, stop with a treadmill reading, learn cadence, estimate next time', async () => {
+  const { LocalStore } = await import('../../web/js/store-core.js');
+  const Wk = await import('../../web/js/walks.js');
+  const mem = new Map();
+  const store = new LocalStore('t:', { getItem: k => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: k => mem.delete(k) });
+  const t0 = new Date(2026, 10, 21, 14, 0).getTime();
+  await Wk.startWalk(store, t0);
+  assert.ok(await Wk.openWalk(store));
+  const r = await Wk.stopWalk(store, t0 + 20 * 60e3, { steps: 2000 });
+  assert.deepEqual([r.steps, r.est, r.minutes], [2000, false, 20]);
+  assert.equal(await Wk.openWalk(store), null);
+  assert.equal(await Wk.cadence(store), Math.round(0.7 * 85 + 0.3 * 100));
+  await Wk.startWalk(store, t0 + 60 * 60e3);
+  const r2 = await Wk.stopWalk(store, t0 + 70 * 60e3);
+  assert.deepEqual([r2.steps, r2.est], [10 * 90, true]);
+  const day = await store.get('daily', '2026-11-21');
+  assert.equal(Object.keys(day.walks).length, 2);
+  const live = Wk.walksFor(day, { start: t0 + 80 * 60e3 }, t0 + 90 * 60e3, 90);
+  assert.equal(live.open.steps, 900);
+});

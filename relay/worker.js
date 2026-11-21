@@ -6,7 +6,7 @@
 // Secrets (npx wrangler secret put ...): FIREBASE_SA (service account JSON), HC_TOKEN (any long random string).
 // Vars (wrangler.toml): OWNER_UID (your Firebase Auth uid).
 import { transform, writes, plain, dailyWrite, bodyWrite, value } from './hc.js';
-import { sumIntervals } from '../web/js/activity.js';
+import { sumIntervals, stepsWithWalks } from '../web/js/activity.js';
 
 let google = null;
 
@@ -38,11 +38,17 @@ export default {
       // Refresh the small per-day summary from the whole day's records.
       const days = [...result.days.keys()];
       if (days.length) {
-        const got = await call(':batchGet', { documents: days.map(d => `${root}/activity/${d}`), mask: { fieldPaths: ['steps', 'cal', 'dist'] } });
-        const summaries = got.filter(x => x.found).map(x => {
-          const f = plain({ mapValue: { fields: x.found.fields || {} } });
-          return dailyWrite(root, x.found.name.split('/').pop(), {
-            steps: Math.round(sumIntervals(f.steps || {})), kcal: Math.round(sumIntervals(f.cal || {})), km: sumIntervals(f.dist || {}) / 1000,
+        const got = await call(':batchGet', {
+          documents: days.flatMap(d => [`${root}/activity/${d}`, `${root}/daily/${d}`]), mask: { fieldPaths: ['steps', 'cal', 'dist', 'walks'] },
+        });
+        const docs = {};   // "activity/2026-11-21" -> plain fields
+        for (const x of got) if (x.found) docs[x.found.name.split('/').slice(-2).join('/')] = plain({ mapValue: { fields: x.found.fields || {} } });
+        const summaries = days.filter(d => docs['activity/' + d]).map(d => {
+          const f = docs['activity/' + d], walks = docs['daily/' + d]?.walks;
+          // Treadmill-desk walks replace the watch's undercount inside their windows (web/js/walks.js).
+          return dailyWrite(root, d, {
+            steps: Math.round(stepsWithWalks(f.steps || {}, walks)), watchSteps: Math.round(sumIntervals(f.steps || {})),
+            kcal: Math.round(sumIntervals(f.cal || {})), km: sumIntervals(f.dist || {}) / 1000,
           });
         });
         if (summaries.length) await call(':commit', { writes: summaries });

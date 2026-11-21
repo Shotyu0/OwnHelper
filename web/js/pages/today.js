@@ -4,20 +4,26 @@ import { scheduled, streak, consistency, workoutStatus, watchCounts, syncSetPlan
 import { summarize } from '../activity.js';
 import { effectiveGaming } from '../settings.js';
 import { stepPlan, stepGoalNow } from '../targets.js';
+import { openWalk, cadence, walksFor } from '../walks.js';
+import { walkButton, bindWalk } from '../walk-ui.js';
 import { esc, pill, check, heatmap } from '../ui.js';
 
 /** Inputs for the gate. The PC guardian computes the same thing (helper/gaming/rules.py) to enforce it. */
 export async function gateInputs(ctx) {
   const { store, settings } = ctx;
   const today = ctx.today(), start = ctx.dayStart(today), now = ctx.now();
-  const [workouts, watchSessions, korean, activityDoc] = await Promise.all([
+  const [workouts, watchSessions, korean, activityDoc, dailyCal, walk, cad] = await Promise.all([
     store.query('workouts', { where: [['day', '==', today]] }),
     store.query('exercises', { where: [['start', '>=', start]] }),
     counts(store, settings.korean, now, start),
     store.get('activity', calendarDay(now)),
+    store.get('daily', calendarDay(now)),
+    openWalk(store),
+    cadence(store),
   ]);
   const ws = workoutStatus({ settings, today, workouts, watchSessions });
-  const steps = summarize(activityDoc).steps;
+  const walks = walksFor(dailyCal, walk, now, cad);   // treadmill-desk walks count in full (walks.js)
+  const steps = summarize(activityDoc, [], walks).steps;
   const g = effectiveGaming(settings, today), a = settings.activity;
   const items = [];
   if (g.requireWorkout) {
@@ -36,7 +42,7 @@ export async function gateInputs(ctx) {
     if (g.requireKoreanNewCards && korean.newLeft) parts.push(`${korean.newLeft} new cards left`);
     items.push({ key: 'korean', label: 'Korean', ok: !parts.length, detail: parts.join(', ') || 'Done for today', href: '#/study' });
   }
-  return { items, ws, korean, steps, activityDoc, watchSessions };
+  return { items, ws, korean, steps, activityDoc, watchSessions, walks, walk };
 }
 
 export async function render(main, ctx) {
@@ -63,7 +69,7 @@ export async function render(main, ctx) {
   for (const x of exercises) if (watchCounts(x, a)) doneDays.add(x.day);
   const st = streak(doneDays, settings, today, ctx.startedOn);
   const cons = consistency(doneDays, settings, today, ctx.startedOn);
-  const act = summarize(gate.activityDoc, gate.watchSessions);
+  const act = summarize(gate.activityDoc, gate.watchSessions, gate.walks);
   const byDay = Object.fromEntries(daily.map(d => [d.day, d]));
   const wkByDay = {};
   for (const w of workouts) if (w.status !== 'in_progress') wkByDay[w.day] = wkByDay[w.day] === 'done' ? 'done' : w.status;
@@ -108,6 +114,7 @@ export async function render(main, ctx) {
       ${a.stepGoalAuto && steps.goal && steps.target > steps.goal ? `<p class="small muted m0">This week's goal, on the way to ${steps.target.toLocaleString()} (<a href="#/plan">why</a>)</p>` : ''}
       <p class="small">${act.activeMinutes ? `Active: <b>${act.activeMinutes} min</b> · ` : ''}${act.restingHr ? `Lowest HR: ${act.restingHr} bpm` : ''}
         ${act.updatedAt ? `<br><span class="muted">Watch synced ${fmtDateTime(act.updatedAt)}</span>` : '<br><span class="muted">No watch data yet — see Settings</span>'}</p>
+      ${settings.moveBreaks.treadmill ? `<p id="walkbtn" class="m0">${walkButton(gate.walk, ctx.now())}</p>` : ''}
     </div>
     <div class="card">
       <h2>Gaming</h2>
@@ -141,4 +148,5 @@ export async function render(main, ctx) {
       <span class="muted small">(${esc(o.detail || '')})</span></div></div>`).join('')}
     ${events.filter(e => ['offline', 'kill_failed', 'set_missed'].includes(e.kind)).map(e => `<div class="check">${pill(e.kind.replace('_', ' '), 'no')}
       <div><b>${fmtDateTime(e.at)}</b> — ${esc(e.detail)}</div></div>`).join('')}</div>` : ''}`;
+  bindWalk(main.querySelector('#walkbtn'), ctx, () => render(main, ctx));
 }

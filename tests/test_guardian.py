@@ -193,22 +193,60 @@ def test_no_desk_nudges_while_gaming(env):
     assert not calls["nudge"]
 
 
-def test_treadmill_desk_walking_pauses_nudges(env):
+def test_treadmill_walk_logs_steps_and_replaces_nudges(env, monkeypatch):
     make, running, calls, wall, clock, store, rules = env
-    store.update("meta", "settings", {"moveBreaks": {"treadmill": True, "walkMinutes": 15}})
+    bars = []
+    monkeypatch.setattr(gapp.Guardian, "_show_walk_bar", lambda self: bars.append(self.walk_asking_since)
+                        or setattr(self, "walk_bar", object()))
+    store.update("meta", "settings", {"moveBreaks": {"treadmill": True, "walkCheckMinutes": 30}})
     g = make()
     g._step()
     wall["t"] += 31 * 60
     g._step()
-    assert len(calls["nudge"]) == 1 and calls["nudge"][0]["treadmill"]
-    g._walking_now(15)                                # typing continues while walking: no idle reset
-    assert store.get("daily", "2026-11-21")["moveBreaks"] == 1
-    wall["t"] += 14 * 60
-    g._step()
     assert len(calls["nudge"]) == 1
-    wall["t"] += 29 * 60                              # 15 min walking, then 28 min sitting: not yet
+    g._start_walk("pc")                                   # "Walking now" on the nudge
+    assert store.get("meta", "walk")["start"] == clock[0] and store.get("daily", "2026-11-21")["moveBreaks"] == 1
+    wall["t"] += 20 * 60
+    clock[0] += 20 * 60_000
     g._step()
-    assert len(calls["nudge"]) == 1
-    wall["t"] += 3 * 60
+    assert len(calls["nudge"]) == 1 and bars[-1] is None  # walking: timer bar, no nudges
+    wall["t"] += 11 * 60                                  # 31 min: "still walking?"
+    clock[0] += 11 * 60_000
     g._step()
-    assert len(calls["nudge"]) == 2
+    assert bars[-1] is not None
+    wall["t"] += 5 * 60                                   # no answer for 5 min: ends when asked (31 min)
+    clock[0] += 5 * 60_000
+    g._step()
+    walk = store.get("daily", "2026-11-21")["walks"]
+    (w,) = walk.values()
+    assert w["est"] and w["e"] - w["s"] == 31 * 60_000 and w["steps"] == 31 * 85
+    assert store.get("meta", "walk")["start"] is None and any("Treadmill walk logged" in t for t in calls["toast"])
+
+
+def test_walk_ends_when_you_leave_and_learns_your_pace(env, monkeypatch):
+    make, running, calls, wall, clock, store, rules = env
+    monkeypatch.setattr(gapp.Guardian, "_show_walk_bar", lambda self: setattr(self, "walk_bar", object()))
+    g = make()
+    g._start_walk("pc")
+    wall["t"] += 25 * 60
+    clock[0] += 25 * 60_000
+    wall["idle"] = 11 * 60                                # left the desk 11 min ago
+    g._step()
+    (w,) = store.get("daily", "2026-11-21")["walks"].values()
+    assert w["e"] - w["s"] == 14 * 60_000
+    wall["idle"] = 0
+    g._start_walk("pc")
+    clock[0] += 20 * 60_000
+    g._end_walk(clock[0], steps=2000)                     # typed in from the treadmill display: 100 steps/min
+    assert store.get("meta", "walkStats")["cadence"] == round(0.7 * 85 + 0.3 * 100)
+
+
+def test_gate_updates_when_korean_progress_changes(env):
+    make, running, calls, wall, clock, store, rules = env
+    g = make()
+    g._step()
+    assert not g.dirty
+    store.update("daily", "2026-11-21", {"gameMinutes": 5})   # the guardian's own write: ignored
+    assert not g.dirty
+    store.update("daily", "2026-11-21", {"reviews": 1})       # an answer in the web app: re-check now
+    assert g.dirty
