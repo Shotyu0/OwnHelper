@@ -191,3 +191,24 @@ def test_no_desk_nudges_while_gaming(env):
     wall["t"] += 45 * 60
     g._step()
     assert not calls["nudge"]
+
+
+def test_treadmill_desk_walking_pauses_nudges(env):
+    make, running, calls, wall, clock, store, rules = env
+    store.update("meta", "settings", {"moveBreaks": {"treadmill": True, "walkMinutes": 15}})
+    g = make()
+    g._step()
+    wall["t"] += 31 * 60
+    g._step()
+    assert len(calls["nudge"]) == 1 and calls["nudge"][0]["treadmill"]
+    g._walking_now(15)                                # typing continues while walking: no idle reset
+    assert store.get("daily", "2026-11-21")["moveBreaks"] == 1
+    wall["t"] += 14 * 60
+    g._step()
+    assert len(calls["nudge"]) == 1
+    wall["t"] += 29 * 60                              # 15 min walking, then 28 min sitting: not yet
+    g._step()
+    assert len(calls["nudge"]) == 1
+    wall["t"] += 3 * 60
+    g._step()
+    assert len(calls["nudge"]) == 2

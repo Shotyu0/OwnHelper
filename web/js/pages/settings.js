@@ -1,5 +1,6 @@
 import { DAY_KEYS } from '../time.js';
 import { effectiveGaming, gamingChange } from '../settings.js';
+import { DAY_TYPES } from '../workout.js';
 import { esc, $, toast } from '../ui.js';
 
 const COLLECTIONS = ['meta', 'cards', 'reviews', 'daily', 'workouts', 'exerciseState', 'sessions', 'snacks', 'overrides', 'events',
@@ -15,7 +16,7 @@ export async function render(main, ctx) {
   main.innerHTML = `<h1>Settings</h1><form id="f"><div class="grid">
     <div class="card"><h2>Workouts</h2>
       ${DAY_KEYS.map(d => `<div class="row spread"><span>${d[0].toUpperCase() + d.slice(1)}</span>
-        <select name="sched_${d}" class="auto">${['gym', 'home', 'rest'].map(o => `<option ${s.workout.schedule[d] === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`).join('')}
+        <select name="sched_${d}" class="auto">${Object.entries(DAY_TYPES).map(([o, label]) => `<option value="${o}" ${s.workout.schedule[d] === o ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select></div>`).join('')}
       <label>Home equipment</label>${box('eq_pullup_bar', s.workout.homeEquipment.includes('pullup_bar'), 'Pull-up bar')}
       ${box('eq_dumbbells', s.workout.homeEquipment.includes('dumbbells'), 'Dumbbells')}
       <label>Units</label><select name="units">${['lb', 'kg'].map(u => `<option ${s.workout.units === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
@@ -34,6 +35,8 @@ export async function render(main, ctx) {
       ${num('watchWorkoutMinMinutes', s.activity.watchWorkoutMinMinutes, '…if it lasts at least (min)', 'min="5"')}</div>
     <div class="card"><h2>Desk breaks (PC)</h2>
       ${box('moveEnabled', s.moveBreaks.enabled, 'Nudge me to get up and walk')}
+      ${box('moveTreadmill', s.moveBreaks.treadmill, 'I have a treadmill under my desk (walk while working)')}
+      ${num('moveWalk', s.moveBreaks.walkMinutes, '"Walking now" pauses nudges for (min)', 'min="5" max="120"')}
       ${num('moveEvery', s.moveBreaks.everyMinutes, 'After this long at the desk (min)', 'min="10" max="120"')}
       ${num('moveSnooze', s.moveBreaks.snoozeMinutes, 'Snooze (min)', 'min="5" max="120"')}
       <p class="small muted">Not shown while gaming; the sets cover that.</p></div>
@@ -86,7 +89,8 @@ export async function render(main, ctx) {
       desiredRetention: n('desiredRetention'), unlockTypingAfterDays: n('unlockTypingAfterDays') };
     const activity = { stepGoalAuto: v('stepGoalAuto').checked, stepGoal: n('stepGoal'), restDayStepGoal: n('restDayStepGoal'),
       watchWorkoutCounts: v('watchWorkoutCounts').checked, watchWorkoutMinMinutes: n('watchWorkoutMinMinutes') };
-    const moveBreaks = { ...s.moveBreaks, enabled: v('moveEnabled').checked, everyMinutes: n('moveEvery'), snoozeMinutes: n('moveSnooze') };
+    const moveBreaks = { ...s.moveBreaks, enabled: v('moveEnabled').checked, everyMinutes: n('moveEvery'), snoozeMinutes: n('moveSnooze'),
+      treadmill: v('moveTreadmill').checked, walkMinutes: n('moveWalk') };
     const choices = [...new Set(v('sessionChoices').value.split(/[,\s]+/).filter(Boolean).map(Number)
       .filter(x => x === 0 || x >= 5))].sort((a, b) => (a || Infinity) - (b || Infinity));
     const gaming = {

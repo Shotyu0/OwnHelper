@@ -180,3 +180,10 @@ def test_korean_quota_comes_from_the_web_apps_daily_plan():
     assert r.korean_quota() == 4
     r.settings["korean"]["autoNewCards"] = False
     assert r.korean_quota() == 10
+
+
+def test_lunch_gym_day_label():
+    clock = [datetime(2026, 11, 23, 12, 0).timestamp() * 1000]      # Monday
+    store, r = make(clock)
+    r.settings["workout"]["schedule"]["mon"] = "gym30"
+    assert r.gate()[0]["detail"] == "Today's lunch gym workout isn't logged yet"

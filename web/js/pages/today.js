@@ -1,6 +1,6 @@
 import { addDays, parseDay, calendarDay, fmtDateTime, fmtDuration } from '../time.js';
 import { counts } from '../korean.js';
-import { scheduled, streak, consistency, workoutStatus, watchCounts, syncSetPlan, setText } from '../workout.js';
+import { scheduled, streak, consistency, workoutStatus, watchCounts, syncSetPlan, setText, dayLabel } from '../workout.js';
 import { summarize } from '../activity.js';
 import { effectiveGaming } from '../settings.js';
 import { stepPlan, stepGoalNow } from '../targets.js';
@@ -23,7 +23,7 @@ export async function gateInputs(ctx) {
   if (g.requireWorkout) {
     const detail = ws.doneAs === 'done' ? 'Done' : ws.doneAs === 'minimum' ? 'Minimum version done'
       : ws.doneAs === 'watch' ? `Watch workout (${fmtDuration(ws.watch.dur / 60)})` : ws.scheduled === 'rest' ? 'Rest day'
-        : `Today's ${ws.scheduled} workout isn't logged yet`;
+        : `Today's ${dayLabel(ws.scheduled)} workout isn't logged yet`;
     items.push({ key: 'workout', label: 'Workout', ok: ws.satisfied, detail, href: '#/workout' });
   }
   if (ws.scheduled === 'rest' && a.restDayStepGoal > 0) {
@@ -90,7 +90,7 @@ export async function render(main, ctx) {
     <div class="card">
       <h2>Workout</h2>
       <div class="big">${st.streak}</div><div class="muted small">session streak (rest days don't count against you)</div>
-      <p class="small">Today: <b>${esc(scheduled(settings, today))}</b> ${gate.ws.done ? pill(gate.ws.doneAs === 'watch' ? 'watch' : 'done', 'ok') : ''}
+      <p class="small">Today: <b>${esc(dayLabel(scheduled(settings, today)))}</b> ${gate.ws.done ? pill(gate.ws.doneAs === 'watch' ? 'watch' : 'done', 'ok') : ''}
         <br>Last 4 weeks: ${cons.pct == null ? '—' : `<b>${cons.hit}/${cons.planned}</b> sessions (${Math.round(cons.pct * 100)}%)`}</p>
       ${st.missedLast && gate.ws.scheduled !== 'rest' && !gate.ws.done ? `<div class="flash wn small">You missed the last session.
         Missing once doesn't matter — just don't miss twice. The 10-minute minimum version counts.</div>` : ''}

@@ -49,11 +49,33 @@ const GYM_B = [
   slot('gym.hang', 'Core', [8, 15], { sets: 2, ladder: ['Hanging knee raise', 'Hanging leg raise', 'Toes to bar'], cue: 'No swinging; curl the pelvis up.' }),
 ];
 
-export const TEMPLATE_TITLES = { home: 'Home full-body', gym_a: 'Gym full-body A', gym_b: 'Gym full-body B' };
+// 30-minute lunch sessions: upper and lower days alternate (2x/week each on a 4-day week), each as two supersets.
+// Supersets pair muscles that don't compete and rest ~60 s between the two moves, which roughly halves session
+// time for the same sets (Iversen et al. 2021). Same exercise slots as the full sessions, so progress carries over.
+const pick = (list, key, o) => ({ ...list.find(s => s.key === key), ...o });
+const LUNCH_UPPER = [
+  pick(GYM_A, 'gym.bench', { pair: 'A1', partner: 'Seated cable row' }),
+  pick(GYM_A, 'gym.row', { pair: 'A2', partner: 'Bench press' }),
+  pick(GYM_B, 'gym.ohp', { pair: 'B1', partner: 'Lat pulldown' }),
+  pick(GYM_B, 'gym.pulldown', { pair: 'B2', partner: 'Overhead press' }),
+];
+const LUNCH_LOWER = [
+  pick(GYM_A, 'gym.squat', { pair: 'A1', partner: 'Seated leg curl' }),
+  pick(GYM_B, 'gym.legcurl', { pair: 'A2', partner: 'Barbell back squat', sets: 3 }),
+  pick(GYM_A, 'gym.rdl', { pair: 'B1', partner: 'Cable crunch' }),
+  pick(GYM_A, 'gym.crunch', { pair: 'B2', partner: 'Romanian deadlift', sets: 3 }),
+];
+
+export const TEMPLATE_TITLES = {
+  home: 'Home full-body', gym_a: 'Gym full-body A', gym_b: 'Gym full-body B',
+  lunch_upper: 'Lunch upper (30 min)', lunch_lower: 'Lunch lower (30 min)',
+};
 
 export function template(name, equipment = []) {
   if (name === 'home') return home(equipment);
   if (name === 'gym_a') return GYM_A;
   if (name === 'gym_b') return GYM_B;
+  if (name === 'lunch_upper') return LUNCH_UPPER;
+  if (name === 'lunch_lower') return LUNCH_LOWER;
   throw new Error('Unknown template ' + name);
 }

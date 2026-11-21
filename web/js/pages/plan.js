@@ -1,7 +1,7 @@
-import { calendarDay, fmtDateTime } from '../time.js';
+import { calendarDay, fmtDateTime, DAY_KEYS } from '../time.js';
 import { GOALS, SOURCES, KG_PER_LB, bodyNow, stepTarget, stepPlan, stepGoalNow, protein, lossRate, fmtWeight, fmtRate, ageOn } from '../targets.js';
 import { koreanPlan, LEARN_AHEAD } from '../korean.js';
-import { syncSetPlan, setText } from '../workout.js';
+import { syncSetPlan, setText, dayLabel } from '../workout.js';
 import { esc, $, toast } from '../ui.js';
 
 const cite = keys => `<span class="small muted">${keys.map(k => `<a href="${SOURCES[k][1]}" target="_blank" rel="noopener">${esc(SOURCES[k][0].split(' — ')[0])}</a>`).join(' · ')}</span>`;
@@ -26,6 +26,8 @@ export async function render(main, ctx) {
   const loss = lossRate(body.weightKg, p.goal);
   const k = koreanPlan(reviews, s.korean, due);
   const sessionsPerWeek = Object.values(s.workout.schedule).filter(x => x !== 'rest').length;
+  const lunchDays = Object.values(s.workout.schedule).filter(x => x === 'gym30').length;
+  const restDays = DAY_KEYS.filter(d => s.workout.schedule[d] === 'rest');
   const g = s.gaming;
   const wInput = p.weightKg ? (units === 'kg' ? Math.round(p.weightKg * 10) / 10 : Math.round(p.weightKg / KG_PER_LB)) : '';
   const age = ageOn(p, today);
@@ -68,13 +70,24 @@ export async function render(main, ctx) {
         <p class="small muted">${esc(target.why)} Small steps up from your own baseline, because sticking with the goal is what predicted results.</p>
         ${cite(target.sources)}</div>
 
-      <div class="card"><h2>Desk breaks</h2>
+      ${s.moveBreaks.treadmill ? `<div class="card"><h2>Treadmill desk</h2>
+        <div class="big">${s.moveBreaks.enabled ? `walk after ${s.moveBreaks.everyMinutes} min sitting` : 'nudges off'}</div>
+        <p class="small">After ${s.moveBreaks.everyMinutes} minutes of sitting at the PC, a nudge: raise the desk and walk for ${s.moveBreaks.walkMinutes}+ minutes.
+          "Walking now" pauses the nudges while you walk. Walk for calls, meetings, reading, email and code review; sit for hard focused coding.
+          About 1.5 mph (2.4 km/h) while typing, faster on calls. At that pace you take roughly 80–100 steps a minute, so 15 minutes is ~1,300 steps
+          and a few blocks a day cover most of the step goal.
+          ${daily?.moveNudges ? `<br>Today: walked after <b>${daily.moveBreaks || 0}</b> of ${daily.moveNudges} nudges.` : ''}</p>
+        <p class="small muted">Walk, don't just stand: 5 minutes of easy walking every 30 minutes cut blood-sugar spikes after meals by about 58% and lowered blood pressure,
+          while in a large study, standing more did not lower heart-disease risk (and over 2 hours a day was linked to circulation problems).
+          Studies on working while walking are mixed: some found no loss in typing or thinking, one found typing a bit slower at 1.5 mph.</p>
+        ${cite(['duran2023', 'ahmadi2024', 'desk2020', 'desk2015'])}</div>`
+      : `<div class="card"><h2>Desk breaks</h2>
         <div class="big">${s.moveBreaks.enabled ? `every ${s.moveBreaks.everyMinutes} min` : 'off'}</div>
         <p class="small">After ${s.moveBreaks.everyMinutes} minutes at the PC, a small nudge: walk for 3–5 minutes. It clears itself once you've been away ${s.moveBreaks.awayMinutes} minutes.
           ${daily?.moveNudges ? `<br>Today: got up after <b>${daily.moveBreaks || 0}</b> of ${daily.moveNudges} nudges.` : ''}</p>
         <p class="small muted">In a lab trial, 5 minutes of easy walking every 30 minutes cut blood-sugar spikes after meals by about 58% and lowered blood
           pressure; every dose tried lowered blood pressure. A day of programming has ~16 of these slots, and they add up to a lot of the step goal.</p>
-        ${cite(['duran2023'])}</div>
+        ${cite(['duran2023'])}</div>`}
 
       <div class="card"><h2>Sets while gaming</h2>
         <div class="big">${g.setEveryMinutes > 0 ? `every ${g.setEveryMinutes} min` : 'off'}<span class="muted unit"> of play</span></div>
@@ -88,15 +101,23 @@ export async function render(main, ctx) {
         ${cite(['minDose2024', 'freq2019', 'daily2022', 'vilpa2022'])}</div>
 
       <div class="card"><h2>Training &amp; food</h2>
-        <p class="small"><b>${sessionsPerWeek} workouts a week</b>, full body, with progressive overload (more reps, then more weight or a
-          harder version). For <b>${esc(GOALS[p.goal] || '')}</b>, lifting is what tells your body to keep and build muscle while you lose fat.</p>
+        <table class="small">${DAY_KEYS.map(d => `<tr><td>${d[0].toUpperCase() + d.slice(1)}</td><td>${esc(dayLabel(s.workout.schedule[d]))}</td></tr>`).join('')}</table>
+        ${lunchDays ? `<p class="small"><b>Lunch sessions (30 min)</b> alternate <b>upper</b> (bench press + cable row, overhead press + lat pulldown) and
+          <b>lower</b> (squat + leg curl, Romanian deadlift + cable crunch), so each muscle is trained twice a week. Each pair is a superset:
+          alternate the two moves with ${s.workout.restSuperset} s rest, 3 rounds, after 1–2 light warm-up sets. That's 12 hard sets in about 25 minutes.</p>` : ''}
+        <p class="small">${sessionsPerWeek} lifting sessions a week with progressive overload (more reps, then more weight). For <b>${esc(GOALS[p.goal] || '')}</b>,
+          lifting is what tells your body to keep and build muscle while you lose fat. The sets during gaming add push, squat and hinge volume on top.</p>
+        ${restDays.some(d => d === 'sat' || d === 'sun') ? `<p class="small"><b>Weekends:</b> no lifting (four sessions is plenty to recover from). Do one
+          45–60 minute <b>brisk</b> walk or hike, or incline walking on the treadmill: brisk means about 100+ steps a minute, where talking gets
+          a little harder. Lunch lifting and slow desk walking don't count as cardio. This brings you toward the 150+ minutes of moderate activity a week
+          that guidelines recommend, and is what raises VO2 max. Missed a lunch? The 10-minute minimum version at home still counts.</p>` : ''}
         ${prot ? `<p class="small">Protein: <b>${prot.low}–${prot.high} g a day</b> (${prot.perKg[0]}–${prot.perKg[1]} g per kg).</p>`
           : '<p class="small muted">Add your weight for a protein target.</p>'}
         ${loss ? `<p class="small">Weight change: lose about <b>${fmtRate(loss.lowKg, units)}–${fmtRate(loss.highKg, units)} a week</b>
           (${loss.pct[0]}–${loss.pct[1]}% of body weight). Faster loss costs muscle. If you're new to lifting, you can gain muscle even while losing slowly.</p>` : ''}
         <p class="small muted">Weekly sets per muscle drive growth (more sets, more growth, up to a point). Protein gains level off around 1.6 g/kg on average,
           and up to 2.2 g/kg covers almost everyone. Athletes losing 0.7% a week kept more muscle and strength than at 1.4%.</p>
-        ${cite(['volume2017', 'protein2018', 'garthe2011'])}</div>
+        ${cite(['iversen2021', 'volume2017', 'who2020', 'cadence2018', 'protein2018', 'garthe2011'])}</div>
 
       <div class="card"><h2>Korean</h2>
         <div class="big">${s.korean.autoNewCards ? k.newPerDay : s.korean.newCardsPerDay}<span class="muted unit"> new words today</span></div>

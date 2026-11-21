@@ -8,12 +8,13 @@ export const DEFAULTS = {
   korean: { minutesPerDay: 40, autoNewCards: true, newCardsPerDay: 10, desiredRetention: 0.9, unlockTypingAfterDays: 7 },
   workout: {
     schedule: { mon: 'gym', tue: 'rest', wed: 'home', thu: 'rest', fri: 'gym', sat: 'home', sun: 'rest' },
-    homeEquipment: [], units: 'lb', restCompound: 150, restAccessory: 90,
+    homeEquipment: [], units: 'lb', restCompound: 150, restAccessory: 90, restSuperset: 60,
   },
   // stepGoalAuto: weekly goal ramps from your own baseline toward the target for your goal (targets.js).
   activity: { stepGoalAuto: true, stepGoal: 8000, restDayStepGoal: 0, watchWorkoutCounts: true, watchWorkoutMinMinutes: 20 },
   // PC nudge to get up after this long at the desk; resets when the PC sees no input for awayMinutes.
-  moveBreaks: { enabled: true, everyMinutes: 30, awayMinutes: 3, snoozeMinutes: 15 },
+  // treadmill: there's a treadmill under the desk, so the nudge says "walk while you work" and pauses for walkMinutes.
+  moveBreaks: { enabled: true, everyMinutes: 30, awayMinutes: 3, snoozeMinutes: 15, treadmill: false, walkMinutes: 15 },
   gaming: {
     requireWorkout: true, countMinimumWorkout: true, requireKoreanReviews: true, requireKoreanNewCards: true,
     // 0 = no limit (session choices, daily caps, set interval).

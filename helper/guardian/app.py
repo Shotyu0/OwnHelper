@@ -7,7 +7,8 @@
   set due (every 30 min    -> warnings at 10 and 2 minutes, then a "set time" prompt; if the set isn't logged
    of play)                   within 60 s the game is closed, and stays closed until it is
   override                 -> 60 s wait + written reason; logged on the dashboard; limited per day
-  at the desk 30 min       -> a small nudge to get up and walk for a few minutes (not while gaming)
+  at the desk 30 min       -> a small nudge to get up and walk for a few minutes (not while gaming); with a
+                              treadmill desk: walk while working, and "Walking now" pauses nudges for a while
 
 Rules and data come from Firestore (helper/gaming/rules.py). Sessions can also be requested from the
 web app; the guardian checks them against the same rules and publishes its status for the web app.
@@ -126,6 +127,7 @@ class Guardian:
         self.sit_start: float | None = None
         self.nudge_at: float | None = None
         self.snooze_until = 0.0
+        self.walking_until = 0.0
         self.sit_reset = False
         self.nudges_shown = 0
         self.warned: set[tuple] = set()
@@ -354,12 +356,23 @@ class Guardian:
             return
         if self.sit_start is None:
             self.sit_start = t - idle
+        if self.walking_until:
+            if t < self.walking_until:
+                return                                # walking at the treadmill desk
+            self.sit_start, self.walking_until = self.walking_until, 0.0
         if in_session or self.nudge_win is not None or t < self.snooze_until:
             return
         if t - self.sit_start >= float(m.get("everyMinutes", 30)) * 60:
             self.nudge_at = t
             self._count("moveNudges")
             self._open_nudge(m)
+
+    def _walking_now(self, minutes: float) -> None:
+        """'Walking now' on the treadmill-desk nudge: no nudges while you walk, then the sitting clock restarts."""
+        self.walking_until = time.time() + minutes * 60
+        self.nudge_at = None
+        self._count("moveBreaks")
+        self._destroy("nudge_win")
 
     def _count(self, field: str) -> None:
         today = self.rules.today()
@@ -378,11 +391,17 @@ class Guardian:
         inner = tk.Frame(t, bg=CARD, padx=18, pady=14)
         inner.pack(padx=(4, 0))
         mins = int(m.get("everyMinutes", 30))
-        tk.Label(inner, text=f"{mins} min at the desk: time to stand up", bg=CARD, fg=FG, font=(FONT, 12, "bold"),
-                 justify="left").pack(anchor="w")
-        tk.Label(inner, text=f"Walk for 3–5 minutes. {idea}", bg=CARD, fg=FG, font=(FONT, 10), wraplength=340,
+        treadmill = bool(m.get("treadmill"))
+        walk = int(m.get("walkMinutes", 15))
+        title = f"{mins} min sitting: walk for a while" if treadmill else f"{mins} min at the desk: time to stand up"
+        body = (f"Raise the desk and walk on the treadmill for {walk}+ minutes at an easy ~1.5 mph (2.4 km/h) while typing, faster on calls. "
+                "Calls, reading, email and code review all work well while walking." if treadmill
+                else f"Walk for 3–5 minutes. {idea}")
+        tk.Label(inner, text=title, bg=CARD, fg=FG, font=(FONT, 12, "bold"), justify="left").pack(anchor="w")
+        tk.Label(inner, text=body, bg=CARD, fg=FG, font=(FONT, 10), wraplength=340,
                  justify="left").pack(anchor="w", pady=(4, 2))
-        tk.Label(inner, text="This closes by itself once you've been away a few minutes.", bg=CARD, fg=MUTED,
+        tk.Label(inner, text="Standing still doesn't count: the benefit comes from walking." if treadmill
+                 else "This closes by itself once you've been away a few minutes.", bg=CARD, fg=MUTED,
                  font=(FONT, 9), wraplength=340, justify="left").pack(anchor="w", pady=(0, 8))
         row = tk.Frame(inner, bg=CARD)
         row.pack(anchor="w")
@@ -392,7 +411,10 @@ class Guardian:
             self.snooze_until = time.time() + minutes * 60
             self._destroy("nudge_win")
 
-        self._button(row, "Going now", lambda: later(10), primary=True)
+        if treadmill:
+            self._button(row, "Walking now", lambda: self._walking_now(walk), primary=True)
+        else:
+            self._button(row, "Going now", lambda: later(10), primary=True)
         self._button(row, f"Snooze {snooze} min", lambda: later(snooze))
         t.update_idletasks()
         t.geometry(f"+{t.winfo_screenwidth() - t.winfo_reqwidth() - 24}+{t.winfo_screenheight() - t.winfo_reqheight() - 80}")

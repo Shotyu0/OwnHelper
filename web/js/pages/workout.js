@@ -1,5 +1,5 @@
-import { addDays, calendarDay, fmtClock, fmtDuration } from '../time.js';
-import { plan, scheduled, nextTemplate, finishWorkout, streak, consistency, workoutStatus, TEMPLATE_TITLES } from '../workout.js';
+import { addDays, calendarDay, fmtClock, fmtDuration, weekdayKey } from '../time.js';
+import { plan, scheduled, nextTemplate, finishWorkout, streak, consistency, workoutStatus, TEMPLATE_TITLES, dayLabel } from '../workout.js';
 import { heartDuring, exerciseName } from '../activity.js';
 import { esc, $, pill } from '../ui.js';
 
@@ -20,7 +20,7 @@ export async function render(main, ctx) {
   const ws = workoutStatus({ settings, today, workouts: todays, watchSessions: watchToday });
   const doneDays = new Set(recent.filter(w => w.status !== 'in_progress').map(w => w.day));
   const st = streak(doneDays, settings, today, ctx.startedOn), cons = consistency(doneDays, settings, today, ctx.startedOn);
-  const sched = scheduled(settings, today), other = sched === 'gym' ? 'home' : 'gym';
+  const sched = scheduled(settings, today), other = sched === 'home' ? 'gym' : 'home';
   const finished = todays.find(w => w.status !== 'in_progress');
   let hr = null;
   if (finished?.finishedAt) {
@@ -35,12 +35,16 @@ export async function render(main, ctx) {
         ${ws.doneAs === 'watch' ? `<p>Your watch recorded ${esc(exerciseName(ws.watch.type))} for ${fmtDuration(ws.watch.dur / 60)} — that counts.</p>` : ''}
         ${hr ? `<p class="small">Heart rate during the workout: avg <b>${hr.avg}</b>, max <b>${hr.max}</b> bpm</p>` : ''}
         <form class="row" data-start><button name="loc" value="${esc(sched === 'rest' ? 'home' : sched)}">Log another workout</button></form>`
-      : sched === 'rest' ? `<h2>Rest day</h2><p class="muted">Muscles grow while you recover. A walk is a great idea; training is optional.</p>
+      : sched === 'rest' ? `<h2>Rest day</h2><p class="muted">Muscles grow while you recover. ${/sat|sun/.test(weekdayKey(today))
+        ? 'Weekend plan: one 45–60 minute brisk walk or hike (about 100+ steps a minute), or incline walking on the treadmill.'
+        : 'Walking is a great idea; training is optional.'}</p>
         <form class="row" data-start><button name="loc" value="home">Train at home anyway</button><button name="loc" value="gym">Train at the gym anyway</button></form>`
-      : `<h2>Today: ${esc(sched)} workout</h2>
-        <p class="muted small">~45 min. Low on energy? Start anyway and tick "minimum version": one set of each, ~10 min.
+      : `<h2>Today: ${esc(dayLabel(sched))}</h2>
+        <p class="muted small">${sched === 'gym30' ? `Next up: <b>${esc(TEMPLATE_TITLES[nextTemplate('gym30', recent)])}</b>. Two supersets: alternate the
+          two exercises with ${settings.workout.restSuperset} s rest between, 3 rounds each, after 1–2 light warm-up sets of the first lift.`
+          : '~45 min.'} Low on energy? Start anyway and tick "minimum version": one set of each, ~10 min.
           It still counts — showing up on bad days matters more than intensity.</p>
-        <form class="row" data-start><button class="primary" name="loc" value="${esc(sched)}">Start ${esc(sched)} workout</button>
+        <form class="row" data-start><button class="primary" name="loc" value="${esc(sched)}">Start ${esc(sched === 'gym30' ? 'lunch' : sched)} workout</button>
           <button name="loc" value="${other}">Do ${other} instead</button></form>`}
       ${watchToday.length ? `<p class="small muted">From your watch today: ${watchToday.map(x => `${esc(exerciseName(x.type))} ${fmtDuration(x.dur / 60)} at ${fmtClock(x.start)}`).join(' · ')}</p>` : ''}
     </div>
@@ -58,10 +62,9 @@ export async function render(main, ctx) {
 
   for (const f of main.querySelectorAll('[data-start]')) f.onsubmit = async e => {
     e.preventDefault();
-    const loc = e.submitter.value;
-    const lastGym = recent.find(w => w.location === 'gym' && w.status !== 'in_progress');
+    const kind = e.submitter.value;
     const id = `${today}-${Date.now().toString(36)}`;
-    await store.set('workouts', id, { day: today, location: loc, template: nextTemplate(loc, lastGym?.template), status: 'in_progress', startedAt: ctx.now(), sets: [] });
+    await store.set('workouts', id, { day: today, location: kind === 'home' ? 'home' : 'gym', template: nextTemplate(kind, recent), status: 'in_progress', startedAt: ctx.now(), sets: [] });
     render(main, ctx);
   };
 }
@@ -90,7 +93,8 @@ function activeWorkout(main, ctx, w, states) {
       weights[s.key] ??= last ? last.weight : s.weight;
       const ex = chosen[s.key] || s.exerciseName;
       return `<div class="card ex ${s.logged.length >= target ? 'dim' : ''}">
-        <div class="spread"><span class="small muted">${esc(s.title)}</span><span class="small"><b>${s.logged.length}/${target}</b> sets · ${s.reps[0]}–${s.reps[1]} reps</span></div>
+        <div class="spread"><span class="small muted">${s.pair ? `<b>${s.pair}</b> · ` : ''}${esc(s.title)}</span><span class="small"><b>${s.logged.length}/${target}</b> sets · ${s.reps[0]}–${s.reps[1]} reps</span></div>
+        ${s.pair ? `<div class="small muted">Superset: alternate with ${esc(s.partner)}, ${s.rest} s rest after each.</div>` : ''}
         ${s.ladder.length ? `<select data-i="${i}" class="variation">${s.ladder.map(v => `<option ${v === ex ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>`
           : `<h3>${esc(ex)}</h3>`}
         ${s.lastChange ? `<div class="small" style="color:var(--good)">${esc(s.lastChange)}</div>` : ''}

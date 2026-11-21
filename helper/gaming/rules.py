@@ -20,6 +20,7 @@ from ..settings import calendar_day, day_key, day_start, effective_gaming, is_we
 
 LEARN_AHEAD_MS = 20 * 60 * 1000
 MIN = 60 * 1000
+DAY_LABELS = {"gym30": "lunch gym"}   # web/js/workout.js DAY_TYPES
 # Used until the web app has written meta/setPlan from your workout levels.
 DEFAULT_SET_PLAN = [
     [{"name": "Push-up", "reps": 6}, {"name": "Bodyweight squat", "reps": 15}],
@@ -75,7 +76,7 @@ class Rules:
                 if watch:
                     done_as = "watch"
             detail = {"done": "Done", "minimum": "Minimum version done", "watch": "Watch workout recorded"}.get(
-                done_as, "Rest day" if sched == "rest" else f"Today's {sched} workout isn't logged yet")
+                done_as, "Rest day" if sched == "rest" else f"Today's {DAY_LABELS.get(sched, sched)} workout isn't logged yet")
             items.append({"key": "workout", "label": "Workout", "ok": bool(done_as) or sched == "rest", "detail": detail})
         if sched == "rest" and a.get("restDayStepGoal", 0) > 0:
             steps = (self.store.get("daily", calendar_day(now)) or {}).get("steps", 0)

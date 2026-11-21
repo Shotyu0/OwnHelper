@@ -94,3 +94,24 @@ test('no daily cap and sets: dropping or easing them waits until tomorrow', () =
   assert.ok(isLooser(g, { ...g, setsRequired: false }));
   assert.ok(isLooser({ ...g, sessionChoices: [30, 60] }, g));        // allowing "no limit" sessions
 });
+
+test('30-minute lunch sessions: supersets, upper/lower alternate, progress shared with full sessions', async () => {
+  const W = await import('../../web/js/workout.js');
+  const { template } = await import('../../web/js/workout-lib.js');
+  assert.equal(W.nextTemplate('gym30', []), 'lunch_upper');
+  const done = t => ({ template: t, status: 'done' });
+  assert.equal(W.nextTemplate('gym30', [done('lunch_upper'), done('gym_a')]), 'lunch_lower');
+  assert.equal(W.nextTemplate('gym30', [done('lunch_lower')]), 'lunch_upper');
+  assert.equal(W.nextTemplate('gym', [done('lunch_upper'), done('gym_a')]), 'gym_b');   // full sessions keep their own rotation
+  for (const name of ['lunch_upper', 'lunch_lower']) {
+    const t = template(name);
+    assert.deepEqual(t.map(s => s.pair), ['A1', 'A2', 'B1', 'B2']);
+    assert.equal(t.reduce((n, s) => n + s.sets, 0), 12);
+    assert.ok(t.every(s => s.key.startsWith('gym.') && s.partner));
+  }
+  const s = withDefaults({ workout: { schedule: { mon: 'gym30' } } });
+  const slots = W.plan({ template: 'lunch_lower', sets: [] }, s, { 'gym.squat': { weight: 135 } });
+  assert.deepEqual([slots[0].rest, slots[0].weight, slots[0].exerciseName], [60, 135, 'Barbell back squat']);
+  assert.equal(W.workoutStatus({ settings: s, today: '2026-11-23', workouts: [], watchSessions: [] }).satisfied, false);
+  assert.equal(W.dayLabel('gym30'), 'lunch gym (30 min)');
+});

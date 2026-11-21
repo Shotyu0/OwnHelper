@@ -11,11 +11,12 @@ DEFAULTS = {
                "unlockTypingAfterDays": 7},
     "workout": {
         "schedule": {"mon": "gym", "tue": "rest", "wed": "home", "thu": "rest", "fri": "gym", "sat": "home", "sun": "rest"},
-        "homeEquipment": [], "units": "lb", "restCompound": 150, "restAccessory": 90,
+        "homeEquipment": [], "units": "lb", "restCompound": 150, "restAccessory": 90, "restSuperset": 60,
     },
     "activity": {"stepGoalAuto": True, "stepGoal": 8000, "restDayStepGoal": 0, "watchWorkoutCounts": True,
                  "watchWorkoutMinMinutes": 20},
-    "moveBreaks": {"enabled": True, "everyMinutes": 30, "awayMinutes": 3, "snoozeMinutes": 15},
+    "moveBreaks": {"enabled": True, "everyMinutes": 30, "awayMinutes": 3, "snoozeMinutes": 15, "treadmill": False,
+                   "walkMinutes": 15},
     "gaming": {
         "requireWorkout": True, "countMinimumWorkout": True, "requireKoreanReviews": True, "requireKoreanNewCards": True,
         # 0 = no limit (session choices, daily caps, set interval).

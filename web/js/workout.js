@@ -8,9 +8,17 @@ export { TEMPLATE_TITLES };
 
 export const scheduled = (settings, day) => settings.workout.schedule[weekdayKey(day)] || 'rest';
 
-export function nextTemplate(location, lastGymTemplate) {
-  if (location === 'home') return 'home';
-  return lastGymTemplate === 'gym_a' ? 'gym_b' : 'gym_a';
+/** What a schedule entry means. gym30 = a 30-minute lunch session (supersets, upper/lower alternating). */
+export const DAY_TYPES = { gym: 'gym', gym30: 'lunch gym (30 min)', home: 'home', rest: 'rest' };
+export const dayLabel = kind => DAY_TYPES[kind] || kind;
+
+/** The next template for a kind of session. `recent` is your workouts, newest first (or the last gym template). */
+export function nextTemplate(kind, recent = []) {
+  if (kind === 'home') return 'home';
+  const last = prefix => (typeof recent === 'string' ? (recent.startsWith(prefix) ? recent : null)
+    : recent.find(w => w.status !== 'in_progress' && String(w.template || '').startsWith(prefix))?.template);
+  if (kind === 'gym30') return last('lunch_') === 'lunch_upper' ? 'lunch_lower' : 'lunch_upper';
+  return last('gym_') === 'gym_a' ? 'gym_b' : 'gym_a';
 }
 
 export function plan(workout, settings, states) {
@@ -22,7 +30,7 @@ export function plan(workout, settings, states) {
       ...s, level, weighted: !s.ladder.length,
       exerciseName: s.ladder.length ? s.ladder[level] : s.exercise,
       weight: st?.weight ?? null, lastChange: st?.lastChange || '',
-      rest: s.compound ? w.restCompound : w.restAccessory,
+      rest: s.pair ? w.restSuperset : s.compound ? w.restCompound : w.restAccessory,
       logged: (workout.sets || []).filter(x => x.slot === s.key),
     };
   });

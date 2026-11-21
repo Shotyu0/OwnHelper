@@ -18,6 +18,12 @@ export const SOURCES = {
   volume2017: ['Schoenfeld et al. 2017 — more weekly sets, more muscle growth (dose-response)', 'https://doi.org/10.1080/02640414.2016.1210197'],
   protein2018: ['Morton et al. 2018, Br J Sports Med — protein for muscle gain with training (meta-analysis)', 'https://doi.org/10.1136/bjsports-2017-097608'],
   garthe2011: ['Garthe et al. 2011 — slower weight loss (0.7%/week) kept more muscle than 1.4%/week', 'https://doi.org/10.1123/ijsnem.21.2.97'],
+  iversen2021: ['Iversen et al. 2021, Sports Medicine — "No time to lift?" time-efficient strength training', 'https://pubmed.ncbi.nlm.nih.gov/34125411/'],
+  ahmadi2024: ['Ahmadi et al. 2024, Int J Epidemiology — standing more did not lower heart-disease risk', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11481281/'],
+  desk2020: ['2020 trial — typing and thinking while walking on a treadmill desk vs sitting', 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7413476/'],
+  desk2015: ['2015 trial — 1.5 mph treadmill desk: slightly slower typing', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4398464/'],
+  who2020: ['WHO 2020 physical activity guidelines (Bull et al., Br J Sports Med)', 'https://doi.org/10.1136/bjsports-2020-102955'],
+  cadence2018: ['Tudor-Locke et al. 2018, Br J Sports Med — ~100 steps/min is moderate-intensity walking', 'https://doi.org/10.1136/bjsports-2017-097628'],
   cepeda2006: ['Cepeda et al. 2006, Psychological Bulletin — spaced practice (meta-analysis)', 'https://doi.org/10.1037/0033-2909.132.3.354'],
   fsrs: ['FSRS, the spaced-repetition scheduler used here (also in Anki)', 'https://github.com/open-spaced-repetition/ts-fsrs'],
 };

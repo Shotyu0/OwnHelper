@@ -72,7 +72,9 @@ then Right Alt toggles 한/A. On Android, add Korean in Gboard / Samsung Keyboar
 
 1. **Today** shows the gate (today's workout + Korean). Games stay locked until both are done.
 2. **Workout**: log sets on your phone; the app sets next session's targets. A watch-recorded workout of 20+ min
-   (not a walk) also counts.
+   (not a walk) also counts. Schedule days can be gym, **lunch gym (30 min)**, home or rest. Lunch sessions
+   alternate upper and lower, each as two supersets (alternate two exercises with 60 s rest), which roughly
+   halves the time for the same sets (Iversen et al. 2021).
 3. **Korean**: clear the due reviews plus today's new words. New words are sized so the long-run load fits
    your daily minutes (40 by default), using your own answer speed once there's enough of it.
 4. **Gaming**: no daily cap. Before playing, say what you'll do right after (and a length if you want one).
@@ -81,7 +83,9 @@ then Right Alt toggles 한/A. On Android, add Korean in Gboard / Samsung Keyboar
    overdue, you get 60 s to save, then the game is closed until the set is logged (on the PC prompt or the
    phone). The watch checks each set afterwards for a heart-rate rise.
 5. **At the desk**: after 30 minutes at the PC, a small nudge to get up and walk for 3–5 minutes. It clears
-   itself once the PC sees you've been away for 3 minutes. Not shown while gaming.
+   itself once the PC sees you've been away for 3 minutes. Not shown while gaming. With a treadmill under the
+   desk (Settings), it asks you to walk while you work instead, and "Walking now" pauses it for 15 minutes.
+   Walk rather than just stand: standing more didn't lower heart-disease risk (Ahmadi et al. 2024).
 6. **Plan** shows your targets (steps, protein, weight change, Korean, sets) with the reasons and sources.
    Add your birth year and weight there; recent watch readings take over automatically.
 
