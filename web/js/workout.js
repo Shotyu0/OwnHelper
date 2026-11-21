@@ -118,3 +118,46 @@ export function workoutStatus({ settings, today, workouts, watchSessions }) {
   if (!doneAs && watch) doneAs = 'watch';
   return { scheduled: sched, doneAs, done: !!doneAs, watch, satisfied: !!doneAs || sched === 'rest' };
 }
+
+// ------------------------------------------------------------------------------------------- sets during play
+// Every setEveryMinutes of gaming you stand up for one short set: an upper-body move + a leg move, at your current
+// home-workout level and ~70% of the bottom of its rep range, so it stays well short of failure. Spread-out
+// "exercise snacks" add weekly volume (what drives muscle growth) without wrecking recovery, and they break up sitting.
+const DEFAULT_LEVEL = { 'home.push': 3, 'home.pull': 1, 'home.vpush': 0, 'home.squat': 1, 'home.hinge': 0 };
+
+export function setPlan(settings, states = {}) {
+  const eq = settings.workout.homeEquipment || [];
+  // Bodyweight ladders only (no dumbbells mid-game); the pull-up bar decides the pull ladder.
+  const slots = Object.fromEntries(template('home', eq.filter(x => x === 'pullup_bar')).map(s => [s.key, s]));
+  const at = key => {
+    const s = slots[key];
+    const lvl = Math.min(states[key] ? states[key].level || 0 : DEFAULT_LEVEL[key] ?? 0, s.ladder.length - 1);
+    return { s, lvl, name: s.ladder[lvl] };
+  };
+  const upper = key => { const x = at(key); return { name: x.name, reps: Math.max(3, Math.ceil(x.s.reps[0] * 0.7)) }; };
+  const squat = () => {
+    const x = at('home.squat');
+    return x.lvl <= 1 ? { name: x.name, reps: 15 } : { name: x.name, reps: x.lvl >= 5 ? 4 : 8, note: 'each leg' };
+  };
+  const hinge = () => {
+    const x = at('home.hinge');
+    if (x.lvl === 0) return { name: x.name, reps: 15 };
+    return x.lvl === x.s.ladder.length - 1 ? { name: x.name, reps: 3 } : { name: x.name, reps: 8, note: 'each leg' };
+  };
+  return [
+    [upper('home.push'), squat()],
+    [eq.includes('pullup_bar') ? upper('home.pull') : upper('home.vpush'), hinge()],
+  ];
+}
+
+export const setText = items => (items || []).map(i => `${i.reps} × ${i.name}${i.note ? ` (${i.note})` : ''}`).join(' + ');
+
+/** Keeps meta/setPlan (read by the PC guardian) in step with your workout levels and equipment. */
+export async function syncSetPlan(store, settings) {
+  const states = Object.fromEntries((await store.query('exerciseState')).map(s => [s.id, s]));
+  const variants = setPlan(settings, states);
+  const sig = JSON.stringify(variants);
+  const cur = await store.get('meta', 'setPlan');
+  if (cur?.sig !== sig) store.set('meta', 'setPlan', { variants, sig, at: Date.now() });
+  return variants;
+}

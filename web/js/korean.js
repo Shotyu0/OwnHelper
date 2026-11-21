@@ -1,7 +1,7 @@
 // Korean spaced repetition with FSRS (ts-fsrs, the reference JS implementation).
 //
 // Each note becomes two cards in users/{uid}/cards:
-//   <key>_r  read  (Korean -> meaning)       introduced in newRank order, newCardsPerDay per day
+//   <key>_r  read  (Korean -> meaning)       introduced in newRank order, newQuota() per day
 //   <key>_t  type  (meaning -> type Korean)  locked until the read card's memory lasts unlockTypingAfterDays
 // Field conventions (the PC guardian counts these, see helper/gaming/rules.py):
 //   due          ms; present only on cards that are being reviewed
@@ -9,6 +9,7 @@
 //   introducedAt ms; set when a read card is first answered
 import { fsrs, createEmptyCard, State } from 'ts-fsrs';
 import { DELETE } from './store-core.js';
+import { ymd } from './time.js';
 
 export const LEARN_AHEAD = 20 * 60e3;
 export const NO_TYPING = new Set(['grammar']);
@@ -99,8 +100,61 @@ export function review(card, rating, korean, now) {
   return { patch, unlock };
 }
 
+// ------------------------------------------------------------------------------------------- daily size
+// How many reviews a card needs in its first year, by target recall. Estimated from FSRS default parameters
+// (intervals of roughly 1, 3, 10, 25, 60, 140, 300 days at 90%, plus relearning after lapses).
+const REVIEWS_PER_CARD = r => (r >= 0.95 ? 14 : r >= 0.9 ? 9 : 7);
+
+/**
+ * New words per day so the long-run daily load fits korean.minutesPerDay. Each word brings a reading card and
+ * later a typing card; both get ~REVIEWS_PER_CARD reviews in their first year, so the steady daily load is about
+ * newPerDay x (reviews x seconds per review). Seconds come from your own answers (median of the last week) once
+ * there are 10+ of a kind. If today's due reviews already fill the budget, fewer (or no) new words today.
+ */
+export function koreanPlan(reviews, korean, dueNow) {
+  const secs = pred => {
+    const v = reviews.filter(r => r.ms > 0 && pred(r)).map(r => Math.min(60, Math.max(1.5, r.ms / 1000))).sort((a, b) => a - b);
+    return v.length >= 10 ? Math.round(v[Math.floor(v.length / 2)] * 10) / 10 : null;
+  };
+  const typing = r => String(r.card).endsWith('_t');
+  const measured = { read: secs(r => !typing(r) && !r.isNew), type: secs(r => typing(r) && !r.isNew), fresh: secs(r => !!r.isNew) };
+  const secRead = measured.read ?? 8, secType = measured.type ?? 15, secNew = measured.fresh ?? 20;
+  const k = REVIEWS_PER_CARD(korean.desiredRetention);
+  const perWord = k * (secRead + secType) + 2 * secNew;
+  const budget = korean.minutesPerDay * 60;
+  const steady = Math.max(3, Math.min(30, Math.round(budget / perWord)));
+  const room = Math.max(0, budget - dueNow * (secRead + secType) / 2);
+  const newPerDay = Math.min(steady, Math.floor(room / (secNew + 2 * secRead)));
+  return { newPerDay, steady, perWordMin: Math.round((perWord / 60) * 10) / 10, secRead, secType, secNew, k, dueNow,
+    measured: Object.fromEntries(Object.entries(measured).map(([key, v]) => [key, v != null])) };
+}
+
+let quotaCache = null;
+
+/** Today's new-card quota. Auto mode computes it once a day and stores it in meta/korean (the PC reads it too). */
+export async function newQuota(store, korean, now, todayStart) {
+  if (!korean.autoNewCards) return korean.newCardsPerDay;
+  const day = ymd(new Date(todayStart));
+  const sig = `${day}|${korean.minutesPerDay}|${korean.desiredRetention}`;
+  if (quotaCache?.sig === sig) return quotaCache.n;
+  const saved = await store.get('meta', 'korean');
+  if (saved?.sig === sig) {
+    quotaCache = { sig, n: saved.newPerDay };
+    return saved.newPerDay;
+  }
+  const [reviews, due] = await Promise.all([
+    store.query('reviews', { where: [['at', '>=', now - 7 * 864e5]] }),
+    store.count('cards', [['due', '<=', now + LEARN_AHEAD]]),
+  ]);
+  const plan = koreanPlan(reviews, korean, due);
+  store.set('meta', 'korean', { ...plan, day, sig, at: now, minutes: korean.minutesPerDay });
+  quotaCache = { sig, n: plan.newPerDay };
+  return plan.newPerDay;
+}
+
 // ------------------------------------------------------------------------------------------- queue
 export async function counts(store, korean, now, todayStart) {
+  const quota = await newQuota(store, korean, now, todayStart);
   const [due, newToday, newAvailable, reviewedToday, known] = await Promise.all([
     store.count('cards', [['due', '<=', now + LEARN_AHEAD]]),
     store.count('cards', [['introducedAt', '>=', todayStart]]),
@@ -108,8 +162,8 @@ export async function counts(store, korean, now, todayStart) {
     store.count('reviews', [['at', '>=', todayStart]]),
     store.count('cards', [['kind', '==', 'read'], ['status', '==', 'active']]),
   ]);
-  const newLeft = Math.max(0, Math.min(korean.newCardsPerDay - newToday, newAvailable));
-  return { due, newToday, newAvailable, newLeft, reviewedToday, known, quota: korean.newCardsPerDay, done: due === 0 && newLeft === 0 };
+  const newLeft = Math.max(0, Math.min(quota - newToday, newAvailable));
+  return { due, newToday, newAvailable, newLeft, reviewedToday, known, quota, done: due === 0 && newLeft === 0 };
 }
 
 export async function nextCard(store, korean, now, todayStart) {
@@ -126,7 +180,7 @@ export async function answer(store, card, rating, korean, now, extra = {}) {
   const { patch, unlock } = review(card, rating, korean, now);
   const ops = [
     { op: 'update', col: 'cards', id: card.id, data: patch },
-    { op: 'set', col: 'reviews', id: `${now}-${card.id}`, data: { card: card.id, rating, at: now, ...extra } },
+    { op: 'set', col: 'reviews', id: `${now}-${card.id}`, data: { card: card.id, kind: card.kind, isNew: card.status === 'new', rating, at: now, ...extra } },
   ];
   if (unlock) {
     const typeId = card.nk + '_t';

@@ -6,15 +6,21 @@ from datetime import date, datetime, timedelta
 
 DEFAULTS = {
     "dayStartsAtHour": 4,
-    "korean": {"newCardsPerDay": 10, "desiredRetention": 0.9, "unlockTypingAfterDays": 7},
+    "profile": {"birthYear": None, "weightKg": None, "goal": "recomp"},
+    "korean": {"minutesPerDay": 40, "autoNewCards": True, "newCardsPerDay": 10, "desiredRetention": 0.9,
+               "unlockTypingAfterDays": 7},
     "workout": {
         "schedule": {"mon": "gym", "tue": "rest", "wed": "home", "thu": "rest", "fri": "gym", "sat": "home", "sun": "rest"},
         "homeEquipment": [], "units": "lb", "restCompound": 150, "restAccessory": 90,
     },
-    "activity": {"stepGoal": 7000, "restDayStepGoal": 0, "watchWorkoutCounts": True, "watchWorkoutMinMinutes": 20},
+    "activity": {"stepGoalAuto": True, "stepGoal": 8000, "restDayStepGoal": 0, "watchWorkoutCounts": True,
+                 "watchWorkoutMinMinutes": 20},
+    "moveBreaks": {"enabled": True, "everyMinutes": 30, "awayMinutes": 3, "snoozeMinutes": 15},
     "gaming": {
         "requireWorkout": True, "countMinimumWorkout": True, "requireKoreanReviews": True, "requireKoreanNewCards": True,
-        "sessionChoices": [30, 45, 60, 90], "dailyCapWeekday": 120, "dailyCapWeekend": 180, "cooldownMinutes": 45,
+        # 0 = no limit (session choices, daily caps, set interval).
+        "sessionChoices": [0, 30, 60, 90, 120], "dailyCapWeekday": 0, "dailyCapWeekend": 0, "cooldownMinutes": 0,
+        "setEveryMinutes": 30, "setsRequired": True, "setMinSeconds": 30,
         "warnAtMinutes": [10, 2], "graceSeconds": 60,
         "overrideWaitSeconds": 60, "overrideMinReasonChars": 25, "overrideMaxPerDay": 1, "overrideExtendMinutes": 15,
     },

@@ -123,7 +123,7 @@ test('streaks start on day one and watch workouts count for the gate', () => {
 
 // ------------------------------------------------------------------------------------- settings / time
 test('loosening gaming limits waits until tomorrow, tightening is immediate', () => {
-  const s = withDefaults();
+  const s = withDefaults({ gaming: { dailyCapWeekday: 120, sessionChoices: [30, 60] } });   // a capped setup
   const looser = gamingChange(s, { ...s.gaming, dailyCapWeekday: 240 }, '2026-11-21', '2026-11-22');
   assert.ok(looser.delayed); assert.equal(looser.patch.gaming.dailyCapWeekday, 120);
   const pend = { ...s, ...looser.patch };

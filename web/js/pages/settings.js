@@ -2,7 +2,8 @@ import { DAY_KEYS } from '../time.js';
 import { effectiveGaming, gamingChange } from '../settings.js';
 import { esc, $, toast } from '../ui.js';
 
-const COLLECTIONS = ['meta', 'cards', 'reviews', 'daily', 'workouts', 'exerciseState', 'sessions', 'overrides', 'events', 'exercises'];
+const COLLECTIONS = ['meta', 'cards', 'reviews', 'daily', 'workouts', 'exerciseState', 'sessions', 'snacks', 'overrides', 'events',
+  'exercises', 'activity'];
 
 export async function render(main, ctx) {
   const { settings: s, user, cfg } = ctx;
@@ -19,26 +20,35 @@ export async function render(main, ctx) {
       ${box('eq_dumbbells', s.workout.homeEquipment.includes('dumbbells'), 'Dumbbells')}
       <label>Units</label><select name="units">${['lb', 'kg'].map(u => `<option ${s.workout.units === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
     <div class="card"><h2>Korean</h2>
-      ${num('newCardsPerDay', s.korean.newCardsPerDay, 'New cards per day', 'min="0" max="50"')}
-      <p class="small muted">10/day ≈ 15–20 min of reviews once things settle.</p>
+      ${num('minutesPerDay', s.korean.minutesPerDay, 'Minutes a day', 'min="5" max="180"')}
+      ${box('autoNewCards', s.korean.autoNewCards, 'Size new words to fit those minutes (measured from your own speed)')}
+      ${num('newCardsPerDay', s.korean.newCardsPerDay, 'New cards per day (when the box above is off)', 'min="0" max="50"')}
       <label>Target recall</label><select name="desiredRetention">${[0.85, 0.9, 0.95].map(r => `<option value="${r}" ${s.korean.desiredRetention === r ? 'selected' : ''}>${r * 100}%${r === 0.9 ? ' (recommended)' : ''}</option>`).join('')}</select>
       ${num('unlockTypingAfterDays', s.korean.unlockTypingAfterDays, 'Typing cards unlock when memory lasts (days)', 'min="1" max="60"')}
       <label>Day starts at (hour)</label><input type="number" name="dayStartsAtHour" value="${s.dayStartsAtHour}" min="0" max="8"></div>
     <div class="card"><h2>Activity</h2>
-      ${num('stepGoal', s.activity.stepGoal, 'Daily step goal', 'min="0" step="500"')}
+      ${box('stepGoalAuto', s.activity.stepGoalAuto, 'Weekly step goal that climbs from my baseline (see Plan)')}
+      ${num('stepGoal', s.activity.stepGoal, 'Step goal (when the box above is off, or until there\'s watch data)', 'min="0" step="500"')}
       ${num('restDayStepGoal', s.activity.restDayStepGoal, 'Rest-day step goal for the gaming gate (0 = off)', 'min="0" step="500"')}
       ${box('watchWorkoutCounts', s.activity.watchWorkoutCounts, 'A workout recorded on the watch (not a walk) satisfies the workout gate')}
       ${num('watchWorkoutMinMinutes', s.activity.watchWorkoutMinMinutes, '…if it lasts at least (min)', 'min="5"')}</div>
+    <div class="card"><h2>Desk breaks (PC)</h2>
+      ${box('moveEnabled', s.moveBreaks.enabled, 'Nudge me to get up and walk')}
+      ${num('moveEvery', s.moveBreaks.everyMinutes, 'After this long at the desk (min)', 'min="10" max="120"')}
+      ${num('moveSnooze', s.moveBreaks.snoozeMinutes, 'Snooze (min)', 'min="5" max="120"')}
+      <p class="small muted">Not shown while gaming; the sets cover that.</p></div>
     <div class="card"><h2>Gaming</h2>
       <p class="small muted">Tighter limits apply now. Looser ones start tomorrow, so the decision isn't made mid-urge.</p>
       ${box('requireWorkout', g.requireWorkout, 'Workout before games')}
       ${box('countMinimumWorkout', g.countMinimumWorkout, 'The minimum version counts')}
       ${box('requireKoreanReviews', g.requireKoreanReviews, 'Korean reviews before games')}
       ${box('requireKoreanNewCards', g.requireKoreanNewCards, "Today's new Korean cards before games")}
-      ${num('dailyCapWeekday', g.dailyCapWeekday, 'Daily cap, weekdays (min)', 'min="0"')}
-      ${num('dailyCapWeekend', g.dailyCapWeekend, 'Daily cap, weekends (min)', 'min="0"')}
+      ${num('setEveryMinutes', g.setEveryMinutes, 'A set every … minutes of play (0 = off)', 'min="0" max="120"')}
+      ${box('setsRequired', g.setsRequired, 'Close the game when a set is overdue')}
+      ${num('dailyCapWeekday', g.dailyCapWeekday, 'Daily cap, weekdays (min, 0 = none)', 'min="0"')}
+      ${num('dailyCapWeekend', g.dailyCapWeekend, 'Daily cap, weekends (min, 0 = none)', 'min="0"')}
       ${num('cooldownMinutes', g.cooldownMinutes, 'Cooldown between sessions (min)', 'min="0"')}
-      <label>Session lengths (min, comma-separated)</label><input name="sessionChoices" value="${g.sessionChoices.join(', ')}">
+      <label>Session lengths (min, comma-separated, 0 = no limit)</label><input name="sessionChoices" value="${g.sessionChoices.join(', ')}">
       ${num('overrideMaxPerDay', g.overrideMaxPerDay, 'Overrides per day', 'min="0" max="5"')}
       ${num('overrideWaitSeconds', g.overrideWaitSeconds, 'Override wait (s)', 'min="0"')}
       ${s.gamingPending ? `<div class="flash wn small mt">Looser limits waiting to start on ${esc(s.gamingPending.effective)}.</div>` : ''}</div>
@@ -51,7 +61,8 @@ export async function render(main, ctx) {
         <li>Install <b>HC Webhook</b> (<a href="https://github.com/mcnaveen/health-connect-webhook" target="_blank" rel="noopener">github.com/mcnaveen/health-connect-webhook</a>, also on Google Play) and grant it read access.</li>
         <li>Webhook URL: <code>${esc(relay)}</code></li>
         <li>Add a header <code>Authorization</code> = <code>Bearer &lt;your HC_TOKEN&gt;</code> (the secret you gave the Worker).</li>
-        <li>Data: Steps, Heart rate (1-minute), Exercise, Active calories, Distance. Sync every 30–60 min.</li>
+        <li>Data: Steps, Heart rate, Exercise, Active calories, Distance, Weight, Resting heart rate, VO2 max, Body fat. Sync every 15–30 min.</li>
+        <li>On a Galaxy Watch, set heart rate to <b>measure continuously</b> (Galaxy Wearable → Watch settings → Samsung Health → Heart rate), so your sets can be checked.</li>
         <li>Tap <b>Sync now</b>, then open Activity here.</li>
       </ol></div>
     <div class="card"><h2>Account &amp; data</h2>
@@ -71,17 +82,22 @@ export async function render(main, ctx) {
       schedule: Object.fromEntries(DAY_KEYS.map(d => [d, v('sched_' + d).value])),
       homeEquipment: ['pullup_bar', 'dumbbells'].filter(x => v('eq_' + x).checked),
     };
-    const korean = { newCardsPerDay: n('newCardsPerDay'), desiredRetention: n('desiredRetention'), unlockTypingAfterDays: n('unlockTypingAfterDays') };
-    const activity = { stepGoal: n('stepGoal'), restDayStepGoal: n('restDayStepGoal'), watchWorkoutCounts: v('watchWorkoutCounts').checked, watchWorkoutMinMinutes: n('watchWorkoutMinMinutes') };
-    const choices = v('sessionChoices').value.split(/[,\s]+/).map(Number).filter(x => x >= 5).sort((a, b) => a - b);
+    const korean = { minutesPerDay: n('minutesPerDay'), autoNewCards: v('autoNewCards').checked, newCardsPerDay: n('newCardsPerDay'),
+      desiredRetention: n('desiredRetention'), unlockTypingAfterDays: n('unlockTypingAfterDays') };
+    const activity = { stepGoalAuto: v('stepGoalAuto').checked, stepGoal: n('stepGoal'), restDayStepGoal: n('restDayStepGoal'),
+      watchWorkoutCounts: v('watchWorkoutCounts').checked, watchWorkoutMinMinutes: n('watchWorkoutMinMinutes') };
+    const moveBreaks = { ...s.moveBreaks, enabled: v('moveEnabled').checked, everyMinutes: n('moveEvery'), snoozeMinutes: n('moveSnooze') };
+    const choices = [...new Set(v('sessionChoices').value.split(/[,\s]+/).filter(Boolean).map(Number)
+      .filter(x => x === 0 || x >= 5))].sort((a, b) => (a || Infinity) - (b || Infinity));
     const gaming = {
       ...g, requireWorkout: v('requireWorkout').checked, countMinimumWorkout: v('countMinimumWorkout').checked,
       requireKoreanReviews: v('requireKoreanReviews').checked, requireKoreanNewCards: v('requireKoreanNewCards').checked,
       dailyCapWeekday: n('dailyCapWeekday'), dailyCapWeekend: n('dailyCapWeekend'), cooldownMinutes: n('cooldownMinutes'),
+      setEveryMinutes: n('setEveryMinutes'), setsRequired: v('setsRequired').checked,
       sessionChoices: choices.length ? choices : g.sessionChoices, overrideMaxPerDay: n('overrideMaxPerDay'), overrideWaitSeconds: n('overrideWaitSeconds'),
     };
     const { patch, delayed } = gamingChange(s, gaming, ctx.today(), ctx.tomorrow());
-    await ctx.saveSettings({ workout, korean, activity, dayStartsAtHour: n('dayStartsAtHour'), ...patch });
+    await ctx.saveSettings({ workout, korean, activity, moveBreaks, dayStartsAtHour: n('dayStartsAtHour'), ...patch });
     toast(delayed ? 'Saved. Looser gaming limits start tomorrow.' : 'Saved.', 'ok');
     render(main, ctx);
   };

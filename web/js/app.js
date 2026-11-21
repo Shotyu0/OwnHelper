@@ -12,10 +12,11 @@ const PAGES = {
   words: () => import('./pages/words.js'),
   activity: () => import('./pages/activity.js'),
   gaming: () => import('./pages/gaming.js'),
+  plan: () => import('./pages/plan.js'),
   settings: () => import('./pages/settings.js'),
 };
 const NAV = [['today', 'Today'], ['workout', 'Workout'], ['study', 'Korean'], ['words', 'Words'],
-  ['activity', 'Activity'], ['gaming', 'Gaming'], ['settings', 'Settings']];
+  ['activity', 'Activity'], ['gaming', 'Gaming'], ['plan', 'Plan'], ['settings', 'Settings']];
 
 const main = document.getElementById('main');
 const nav = document.getElementById('nav');

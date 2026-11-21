@@ -49,6 +49,20 @@ export function heartDuring(docsByDay, start, end) {
   return { avg: Math.round(pts.reduce((n, p) => n + p.avg, 0) / pts.length), max: Math.max(...pts.map(p => p.max)), points: pts };
 }
 
+/**
+ * Did the watch see a set? Compares the peak heart rate around the time it was logged with the median of the
+ * quarter hour before. Sync is batched (every 15+ min), so this is checked after the fact, not to unlock the game.
+ *   ok: rose 15+ bpm · low: watch data, but no rise · nodata: too few readings (set the watch to measure continuously)
+ */
+export function verifySet(docsByDay, at) {
+  const pts = heartDuring(docsByDay, at - 25 * 60e3, at + 3 * 60e3)?.points || [];
+  const before = pts.filter(p => p.t < at - 6 * 60e3).map(p => p.avg).sort((a, b) => a - b);
+  const during = pts.filter(p => p.t >= at - 5 * 60e3);
+  if (before.length < 3 || !during.length) return { status: 'nodata' };
+  const base = before[Math.floor(before.length / 2)], peak = Math.max(...during.map(p => p.max));
+  return { status: peak - base >= 15 ? 'ok' : 'low', base, peak, rise: peak - base };
+}
+
 const TYPE_NAMES = {
   strength_training: 'Strength training', weightlifting: 'Weightlifting', running: 'Run', walking: 'Walk',
   biking: 'Ride', cycling: 'Ride', hiking: 'Hike', swimming_pool: 'Swim', swimming_open_water: 'Swim',

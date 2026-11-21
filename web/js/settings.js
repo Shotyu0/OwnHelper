@@ -2,15 +2,24 @@
 // (helper/settings.py mirrors effectiveGaming / isLooser — keep them in sync).
 export const DEFAULTS = {
   dayStartsAtHour: 4,
-  korean: { newCardsPerDay: 10, desiredRetention: 0.9, unlockTypingAfterDays: 7 },
+  // Used for personal targets (Plan page). Weight/resting HR/VO2 max from the watch override these when present.
+  profile: { birthYear: null, weightKg: null, goal: 'recomp' },
+  // autoNewCards: new words/day are sized so the long-run daily load fits minutesPerDay (korean.js newQuota).
+  korean: { minutesPerDay: 40, autoNewCards: true, newCardsPerDay: 10, desiredRetention: 0.9, unlockTypingAfterDays: 7 },
   workout: {
     schedule: { mon: 'gym', tue: 'rest', wed: 'home', thu: 'rest', fri: 'gym', sat: 'home', sun: 'rest' },
     homeEquipment: [], units: 'lb', restCompound: 150, restAccessory: 90,
   },
-  activity: { stepGoal: 7000, restDayStepGoal: 0, watchWorkoutCounts: true, watchWorkoutMinMinutes: 20 },
+  // stepGoalAuto: weekly goal ramps from your own baseline toward the target for your goal (targets.js).
+  activity: { stepGoalAuto: true, stepGoal: 8000, restDayStepGoal: 0, watchWorkoutCounts: true, watchWorkoutMinMinutes: 20 },
+  // PC nudge to get up after this long at the desk; resets when the PC sees no input for awayMinutes.
+  moveBreaks: { enabled: true, everyMinutes: 30, awayMinutes: 3, snoozeMinutes: 15 },
   gaming: {
     requireWorkout: true, countMinimumWorkout: true, requireKoreanReviews: true, requireKoreanNewCards: true,
-    sessionChoices: [30, 45, 60, 90], dailyCapWeekday: 120, dailyCapWeekend: 180, cooldownMinutes: 45,
+    // 0 = no limit (session choices, daily caps, set interval).
+    sessionChoices: [0, 30, 60, 90, 120], dailyCapWeekday: 0, dailyCapWeekend: 0, cooldownMinutes: 0,
+    // A short set (push/pull + legs) every setEveryMinutes of play; setsRequired closes the game when one is overdue.
+    setEveryMinutes: 30, setsRequired: true, setMinSeconds: 30,
     warnAtMinutes: [10, 2], graceSeconds: 60,
     overrideWaitSeconds: 60, overrideMinReasonChars: 25, overrideMaxPerDay: 1, overrideExtendMinutes: 15,
   },
@@ -31,17 +40,22 @@ export function effectiveGaming(settings, today) {
   return p && today >= p.effective ? { ...settings.gaming, ...p.values } : settings.gaming;
 }
 
-const MORE_IS_LOOSER = ['dailyCapWeekday', 'dailyCapWeekend', 'graceSeconds', 'overrideMaxPerDay', 'overrideExtendMinutes'];
-const LESS_IS_LOOSER = ['cooldownMinutes', 'overrideWaitSeconds', 'overrideMinReasonChars'];
-const OFF_IS_LOOSER = ['requireWorkout', 'requireKoreanReviews', 'requireKoreanNewCards'];
+const noLimit = x => (x > 0 ? x : Infinity);   // 0 means "no limit"
+const MORE_IS_LOOSER = ['graceSeconds', 'overrideMaxPerDay', 'overrideExtendMinutes'];
+const LIMITS = ['dailyCapWeekday', 'dailyCapWeekend', 'setEveryMinutes'];
+const LESS_IS_LOOSER = ['cooldownMinutes', 'overrideWaitSeconds', 'overrideMinReasonChars', 'setMinSeconds'];
+const OFF_IS_LOOSER = ['requireWorkout', 'requireKoreanReviews', 'requireKoreanNewCards', 'setsRequired'];
 
 export function isLooser(old, next) {
   if (MORE_IS_LOOSER.some(k => next[k] > old[k])) return true;
+  if (LIMITS.some(k => noLimit(next[k]) > noLimit(old[k]))) return true;
   if (LESS_IS_LOOSER.some(k => next[k] < old[k])) return true;
   if (OFF_IS_LOOSER.some(k => old[k] && !next[k])) return true;
   if (!old.countMinimumWorkout && next.countMinimumWorkout) return true;
-  return Math.max(...next.sessionChoices) > Math.max(...old.sessionChoices);
+  return Math.max(...next.sessionChoices.map(noLimit)) > Math.max(...old.sessionChoices.map(noLimit));
 }
+
+export const sessionLabel = m => (m > 0 ? `${m} min` : 'No limit');
 
 /**
  * A change that tightens the rules applies now. A change that loosens them is stored as pending until tomorrow,

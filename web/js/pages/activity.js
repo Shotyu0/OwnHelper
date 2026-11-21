@@ -2,19 +2,22 @@ import { addDays, calendarDay, fmtDateTime, fmtDuration, parseDay } from '../tim
 import { summarize, heartSeries, exerciseName } from '../activity.js';
 import { esc, lineChart, bars } from '../ui.js';
 import { watchCounts } from '../workout.js';
+import { stepPlan, stepGoalNow, fmtWeight } from '../targets.js';
 
 export async function render(main, ctx, params) {
   const { store, settings } = ctx;
   const day = params.day || calendarDay(ctx.now());
   const from = addDays(day, -29);
-  const [doc, exercises, daily] = await Promise.all([
+  const [doc, exercises, daily, plan, body] = await Promise.all([
     store.get('activity', day),
     store.query('exercises', { where: [['day', '>=', addDays(day, -13)]] }),
     store.query('daily', { where: [['day', '>=', from]] }),
+    stepPlan(store, settings, calendarDay(ctx.now())),
+    store.get('meta', 'body'),
   ]);
   const todays = exercises.filter(x => x.day === day);
   const s = summarize(doc, todays);
-  const goal = settings.activity.stepGoal;
+  const goal = stepGoalNow(settings, plan);
   const byDay = Object.fromEntries(daily.map(d => [d.day, d]));
   const stepBars = [];
   for (let d = from; d <= day; d = addDays(d, 1)) stepBars.push({ v: byDay[d]?.steps || 0, tip: `${d}: ${(byDay[d]?.steps || 0).toLocaleString()} steps` });
@@ -36,12 +39,13 @@ export async function render(main, ctx, params) {
     <div class="grid">
       <div class="card"><h2>Steps</h2><div class="big">${s.steps.toLocaleString()}</div>
         <div class="bar"><div style="width:${Math.min(100, (s.steps / goal) * 100)}%;background:var(--good)"></div></div>
-        <p class="small muted">Goal ${goal.toLocaleString()}. Benefits for health and lifespan level off around
-          7,000–8,000 steps a day (Paluch et al., 2022).</p></div>
+        <p class="small muted">Goal ${goal.toLocaleString()}${settings.activity.stepGoalAuto && plan.target ? `, rising toward ${plan.target.toLocaleString()} as you hit it`
+          : ''} (<a href="#/plan">Plan</a> explains). ${byDay[day]?.moveNudges ? `Desk breaks: got up after ${byDay[day].moveBreaks || 0} of ${byDay[day].moveNudges} nudges.` : ''}</p></div>
       <div class="card"><h2>Active</h2><div class="big">${s.activeMinutes}<span class="muted unit"> min</span></div>
         <p class="small">${s.kcal ? `${s.kcal} active kcal · ` : ''}${s.km ? `${s.km.toFixed(1)} km` : ''}</p>
         <p class="small muted">Recorded workouts. Guidelines: 150+ min of moderate activity a week, plus strength training twice a week.</p></div>
-      <div class="card"><h2>Heart rate</h2><div class="big">${s.restingHr ?? '—'}<span class="muted unit"> bpm lowest</span></div>
+      <div class="card"><h2>Heart rate</h2><div class="big">${doc?.body?.restingHr?.[0] ?? s.restingHr ?? '—'}<span class="muted unit"> bpm ${doc?.body?.restingHr ? 'resting' : 'lowest'}</span></div>
+        <p class="small">${body?.vo2max ? `VO2 max ${body.vo2max[0].toFixed(1)} · ` : ''}${body?.weightKg ? `Weight ${fmtWeight(body.weightKg[0], settings.workout.units)}` : ''}</p>
         <p class="small muted">${s.updatedAt ? 'Synced ' + fmtDateTime(s.updatedAt) : ''}</p></div>
     </div>
     <div class="card mt"><h2>Heart rate through the day</h2>

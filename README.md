@@ -9,7 +9,7 @@ A private app for three goals: **work out consistently**, **learn Korean (readin
  │ web app (GitHub Pages)│◄────────►│ Firestore users/{uid}/…   │◄───────────►│ guardian (closes games  │
  │ Today · Workout ·     │  Google   │ cards, workouts, daily,   │ service acct│ outside sessions)       │
  │ Korean · Activity ·   │  sign-in  │ sessions, activity, …     │             │ Korean reader :5057     │
- │ Gaming · Settings     │           └──────────────▲───────────┘             └─────────────────────────┘
+ │ Gaming · Plan · …     │           └──────────────▲───────────┘             └─────────────────────────┘
  └───────────────────────┘                          │ service account
  watch → Samsung Health / Fitbit → Health Connect → HC Webhook app → Cloudflare Worker (relay/)
 ```
@@ -58,7 +58,10 @@ Put the Worker URL in `web/config.js` (`relay`). On the phone:
 1. Let Samsung Health / Fitbit write to **Health Connect**.
 2. Install **HC Webhook** ([github.com/mcnaveen/health-connect-webhook](https://github.com/mcnaveen/health-connect-webhook), on Google Play).
 3. Set the webhook URL to `https://<worker>/hc` and add the header `Authorization: Bearer <HC_TOKEN>`.
-4. Choose Steps, Heart rate (1-minute), Exercise, Active calories and Distance, and sync every 30–60 min.
+4. Choose Steps, Heart rate, Exercise, Active calories, Distance, Weight, Resting heart rate, VO2 max and Body fat,
+   and sync every 15–30 min.
+5. On a Galaxy Watch, set heart rate to **measure continuously** (Galaxy Wearable → Watch settings → Samsung
+   Health → Heart rate). The app uses it to check your in-game sets afterwards.
 
 The web app's Settings page shows the exact URL.
 
@@ -70,10 +73,17 @@ then Right Alt toggles 한/A. On Android, add Korean in Gboard / Samsung Keyboar
 1. **Today** shows the gate (today's workout + Korean). Games stay locked until both are done.
 2. **Workout**: log sets on your phone; the app sets next session's targets. A watch-recorded workout of 20+ min
    (not a walk) also counts.
-3. **Korean**: clear the due reviews plus 10 new cards (~15–20 min/day once it settles).
-4. **Gaming**: before playing, choose how long and what you'll do right after, here or on the PC prompt.
-   Launching a Steam game without a session closes it and asks. You get warnings at 10 and 2 min, then 60 s
-   to save, then the game is closed.
+3. **Korean**: clear the due reviews plus today's new words. New words are sized so the long-run load fits
+   your daily minutes (40 by default), using your own answer speed once there's enough of it.
+4. **Gaming**: no daily cap. Before playing, say what you'll do right after (and a length if you want one).
+   Every 30 minutes of play a short set is due: an upper-body move plus a leg move at your home-workout level
+   (e.g. 6 push-ups + 15 squats). Warnings come at 10 and 2 minutes, so you can do it between matches. If it's
+   overdue, you get 60 s to save, then the game is closed until the set is logged (on the PC prompt or the
+   phone). The watch checks each set afterwards for a heart-rate rise.
+5. **At the desk**: after 30 minutes at the PC, a small nudge to get up and walk for 3–5 minutes. It clears
+   itself once the PC sees you've been away for 3 minutes. Not shown while gaming.
+6. **Plan** shows your targets (steps, protein, weight change, Korean, sets) with the reasons and sources.
+   Add your birth year and weight there; recent watch readings take over automatically.
 
 ## How it works (and why)
 
@@ -83,7 +93,8 @@ before:
 - **"Right after, I will…"** plans, which roughly double follow-through (Gollwitzer & Sheeran 2006).
 - **Premack principle**: games come after the hard things.
 
-Daily cap, cooldown between sessions, and **overrides only on the PC prompt**: a 60 s wait plus a written
+A set every 30 minutes of play is the stop point: you get up, move, and decide again with a clear head.
+Optional daily cap and cooldown (off by default), and **overrides only on the PC prompt**: a 60 s wait plus a written
 reason, 1/day, shown on the dashboard. Changes in Settings that **loosen** limits take effect tomorrow, so they
 can't be made mid-urge. If the guardian is killed, the gap is logged on its next start.
 
@@ -104,8 +115,17 @@ hits the top of the rep range, add weight (gym) or move to a harder bodyweight v
 below the range → a small step back. The 10-minute **minimum version** keeps the streak and the gate, because
 consistency beats intensity and one missed day doesn't break a habit (Lally et al. 2010).
 
-**Activity.** Steps are de-duplicated when both the phone and the watch count them. The goal defaults to
-7,000/day, where health benefits level off (Paluch et al. 2022). You can set a rest-day step goal as part of the gate.
+**Activity.** Steps are de-duplicated when both the phone and the watch count them. The weekly step goal starts
+1,000 above your own baseline (median of your first days of watch data) and goes up 1,000 when you hit it on
+5 days of the week, toward 10,000 for fat loss or 8,000 for health (7,000 if 60+). Health benefits level off
+around 7,000–8,000 (Ding et al. 2025, Paluch et al. 2022); for fat loss, walking is extra energy out that doesn't
+cost recovery. Walking breaks every 30 minutes lowered blood sugar and blood pressure in a lab trial (Duran et
+al. 2023). You can set a rest-day step goal as part of the gate.
+
+**Sets while gaming.** Brief "exercise snacks" through the day build strength and fitness, and with weekly
+volume equal, many small bouts work about as well as a few big ones. The sets stop well short of failure,
+so they don't hurt your next workout. The watch can't unlock the game (it syncs every 15+ minutes), so a set
+logged without a heart-rate rise shows up as "no HR rise seen".
 
 ## Limits
 

@@ -69,9 +69,13 @@ def test_locked_gate_needs_override_and_overrides_are_limited():
         r.start_session(30, "sleep", override_reason="Friends are online for a one-off raid tonight")
 
 
+# The caps and cooldown still work when set; the defaults are now "no cap".
+CAPPED = dict(sessionChoices=[30, 45, 60, 90], dailyCapWeekday=120, dailyCapWeekend=180, cooldownMinutes=45)
+
+
 def test_cap_cooldown_and_publish():
     clock = [SAT_NOON]
-    store, r = make(clock, **open_gate())
+    store, r = make(clock, **open_gate(**CAPPED))
     st = r.status()
     assert st["canStart"] and st["choices"] == [30, 45, 60, 90] and st["cap"] == 180
     with pytest.raises(RuleError, match="right after"):
@@ -113,7 +117,7 @@ def test_extend_and_web_requests():
 
 def test_loosened_limits_wait_until_tomorrow():
     clock = [SAT_NOON]
-    store, r = make(clock, **open_gate())
+    store, r = make(clock, **open_gate(**CAPPED))
     r.settings["gamingPending"] = {"values": {"dailyCapWeekend": 300}, "effective": "2026-11-22"}
     assert r.daily_cap() == 180
     clock[0] += 864e5
@@ -126,3 +130,53 @@ def test_day_rolls_over_at_4am():
     _, r = make(clock)
     assert r.today() == "2026-11-21"
     assert day_start("2026-11-21", 4) == datetime(2026, 11, 21, 4).timestamp() * 1000
+
+
+def test_no_cap_by_default_and_open_ended_sessions():
+    clock = [SAT_NOON]
+    store, r = make(clock, **open_gate())
+    st = r.status()
+    assert st["cap"] is None and st["capLeft"] is None and st["choices"][0] == 0 and st["canStart"]
+    sid = r.start_session(0, "dinner")
+    assert store.get("sessions", sid)["plannedEnd"] is None
+    clock[0] += 300 * MIN                                   # 5 hours: nothing blocks, nothing ends by itself
+    st = r.status()
+    assert round(st["used"]) == 300 and not [b for b in st["blockers"] if "limit" in b.lower()]
+    r.end_session()
+    assert store.get("sessions", sid)["endedAt"] == clock[0]
+
+
+def test_sets_are_due_every_30_min_of_play_across_sessions():
+    clock = [SAT_NOON]
+    store, r = make(clock, **open_gate())
+    assert r.status()["sets"]["dueAt"] is None                # no session, nothing due
+    r.start_session(0, "dinner")
+    st = r.status()["sets"]
+    assert st["dueAt"] == SAT_NOON + 30 * MIN and st["next"] and st["required"]
+    clock[0] += 20 * MIN
+    r.end_session()                                         # stopping and restarting doesn't reset the clock
+    clock[0] += 5 * MIN
+    r.start_session(0, "dinner")
+    assert r.status()["sets"]["dueAt"] == clock[0] + 10 * MIN
+    clock[0] += 12 * MIN                                    # 2 min overdue
+    assert r.status()["sets"]["dueAt"] < clock[0]
+    r.log_set([{"name": "Push-up", "reps": 6}])
+    st = r.status()["sets"]
+    assert st["today"] == 1 and st["dueAt"] == clock[0] + 30 * MIN
+    assert store.query("snacks")[0]["session"] == r.active_session()["id"]
+    store.set("meta", "setPlan", {"variants": [[{"name": "A", "reps": 1}], [{"name": "B", "reps": 2}]]})
+    assert r.status()["sets"]["next"] == [{"name": "B", "reps": 2}]   # alternates by sets done today
+    r.settings["gaming"]["setEveryMinutes"] = 0
+    assert r.status()["sets"] is None
+
+
+def test_korean_quota_comes_from_the_web_apps_daily_plan():
+    clock = [SAT_NOON]
+    store, r = make(clock)
+    assert r.korean_quota() == 10                           # nothing computed yet: settings value
+    store.set("meta", "korean", {"day": "2026-11-20", "newPerDay": 4, "steady": 9})
+    assert r.korean_quota() == 9                            # yesterday's plan: use its steady rate
+    store.set("meta", "korean", {"day": "2026-11-21", "newPerDay": 4, "steady": 9})
+    assert r.korean_quota() == 4
+    r.settings["korean"]["autoNewCards"] = False
+    assert r.korean_quota() == 10

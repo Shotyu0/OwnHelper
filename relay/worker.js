@@ -5,7 +5,7 @@
 //
 // Secrets (npx wrangler secret put ...): FIREBASE_SA (service account JSON), HC_TOKEN (any long random string).
 // Vars (wrangler.toml): OWNER_UID (your Firebase Auth uid).
-import { transform, writes, plain, dailyWrite } from './hc.js';
+import { transform, writes, plain, dailyWrite, bodyWrite } from './hc.js';
 import { sumIntervals } from '../web/js/activity.js';
 
 let google = null;
@@ -46,6 +46,14 @@ export default {
           });
         });
         if (summaries.length) await call(':commit', { writes: summaries });
+      }
+
+      // Latest weight / resting HR / VO2 max / body fat for the Plan page, kept only if newer than what's stored.
+      if (Object.keys(result.body).length) {
+        const got = await call(':batchGet', { documents: [`${root}/meta/body`] });
+        const doc = got.find(x => x.found?.name?.endsWith('/meta/body'));
+        const w = bodyWrite(root, doc ? plain({ mapValue: { fields: doc.found.fields || {} } }) : null, result.body);
+        if (w) await call(':commit', { writes: [w] });
       }
       return json({ ok: true, days, exercises: result.exercises.length });
     } catch (e) {

@@ -6,6 +6,8 @@
 //   cal.<key>    {c: kcal, s, e, o}
 //   dist.<key>   {c: meters, s, e, o}
 //   hr.m<HHMM>   [avg, min, max] bpm for that minute
+//   body.<field> [value, ms] latest reading that day: weightKg, bodyFat (%), restingHr, vo2max, heightM
+// users/{uid}/meta/body               {<field>: [value, ms]} latest reading overall (worker.js merges by time)
 // users/{uid}/exercises/{id}          {type, start, end, dur (s), steps, dist, o, day}
 //
 // Records can be re-sent (edits, retries); keys make every write idempotent.
@@ -41,6 +43,13 @@ function intervalRecords(list, valueOf, tz, field, put) {
   }
 }
 
+// HC Webhook array -> our field, value getter.
+const BODY = [
+  ['weight', 'weightKg', r => r.kilograms], ['body_fat', 'bodyFat', r => r.percentage],
+  ['resting_heart_rate', 'restingHr', r => r.bpm], ['vo2_max', 'vo2max', r => r.ml_per_kg_per_min],
+  ['height', 'heightM', r => r.meters],
+];
+
 export function transform(payload) {
   const tz = payload.timezone && payload.timezone !== 'UTC' ? payload.timezone : null;
   const days = new Map();   // day -> Map(fieldPath -> value)
@@ -68,6 +77,18 @@ export function transform(payload) {
     put(day, `hr.m${hm}`, [Math.round(sum / n), Math.round(min), Math.round(max)]);
   }
 
+  const body = {};   // field -> [value, ms], latest in this payload
+  for (const [src, field, get] of BODY) {
+    for (const r of payload[src] || []) {
+      const p = localParts(r.time, tz), v = get(r);
+      if (!p || v == null || Number.isNaN(+v)) continue;
+      const val = [Math.round(+v * 100) / 100, p.t];
+      const path = `body.${field}`, cur = days.get(p.day)?.get(path);
+      if (!cur || cur[1] < p.t) put(p.day, path, val);
+      if (!body[field] || body[field][1] < p.t) body[field] = val;
+    }
+  }
+
   const exercises = [];
   for (const r of payload.exercise || []) {
     const p = localParts(r.start_time, tz);
@@ -83,7 +104,7 @@ export function transform(payload) {
     });
   }
   const deletedExercises = (payload.deleted || []).filter(d => d.type === 'exercise' && d.id).map(d => 'r_' + san(d.id));
-  return { days, exercises, deletedExercises };
+  return { days, exercises, deletedExercises, body };
 }
 
 // ------------------------------------------------------------------------- Firestore REST encoding
@@ -96,6 +117,13 @@ export function plain(v) {
   if ('arrayValue' in v) return (v.arrayValue.values || []).map(plain);
   if ('mapValue' in v) return Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, plain(x)]));
   return null;
+}
+
+/** meta/body update with the readings that are newer than what's stored (stored: plain object or null). */
+export function bodyWrite(docsRoot, stored, latest) {
+  const fresh = Object.fromEntries(Object.entries(latest || {}).filter(([k, v]) => !(stored?.[k]?.[1] >= v[1])));
+  if (!Object.keys(fresh).length) return null;
+  return { update: { name: `${docsRoot}/meta/body`, fields: value(fresh).mapValue.fields }, updateMask: { fieldPaths: Object.keys(fresh) } };
 }
 
 /** daily/{day} summary (what the dashboard heatmaps read), recomputed from the full activity doc. */

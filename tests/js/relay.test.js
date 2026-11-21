@@ -68,3 +68,21 @@ test('heart rate during a workout window', () => {
   assert.equal(exerciseName('STRENGTH_TRAINING'), 'Strength training');
   assert.equal(exerciseName('exercise_type_rowing_machine'), 'Rowing machine');
 });
+
+test('body readings: latest per day in activity, newer-only into meta/body', async () => {
+  const { bodyWrite } = await import('../../relay/hc.js');
+  const r = transform({
+    timezone: 'America/New_York',
+    weight: [{ kilograms: 84.31, time: '2026-11-21T12:00:00Z' }, { kilograms: 84.0, time: '2026-11-21T23:00:00Z' }],
+    resting_heart_rate: [{ bpm: 58, time: '2026-11-21T09:00:00Z' }],
+    vo2_max: [{ ml_per_kg_per_min: 41.2, time: '2026-11-20T15:00:00Z' }],
+  });
+  assert.deepEqual(r.days.get('2026-11-21').get('body.weightKg'), [84, Date.parse('2026-11-21T23:00:00Z')]);
+  assert.deepEqual(r.days.get('2026-11-20').get('body.vo2max'), [41.2, Date.parse('2026-11-20T15:00:00Z')]);
+  assert.deepEqual(Object.keys(r.body).sort(), ['restingHr', 'vo2max', 'weightKg']);
+  const root = 'projects/p/databases/(default)/documents/users/u';
+  const stored = { weightKg: [85, Date.parse('2026-11-22T08:00:00Z')], restingHr: [60, 0] };
+  const w = bodyWrite(root, stored, r.body);
+  assert.deepEqual(w.updateMask.fieldPaths.sort(), ['restingHr', 'vo2max']);   // stored weight is newer: kept
+  assert.equal(bodyWrite(root, { ...stored, ...r.body }, r.body), null);
+});
