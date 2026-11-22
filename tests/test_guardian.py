@@ -8,6 +8,7 @@ from helper.cloud import MemoryStore
 from helper.gaming.rules import MIN, Rules
 from helper.guardian import app as gapp
 from helper.guardian import detect
+from helper.guardian.inputwatch import Presence
 from helper.settings import with_defaults
 
 GAME = detect.GameProc(pid=4242, exe_name="game.exe", appid="105600", title="Terraria")
@@ -31,7 +32,7 @@ def env(monkeypatch):
     calls["break"], calls["nudge"] = [], []
     monkeypatch.setattr(gapp.Guardian, "_open_break", lambda self, sets, due: calls["break"].append(due) or (
         setattr(self, "break_win", object()), setattr(self, "break_due", due), setattr(self, "break_opened", wall["t"]),
-        setattr(self, "break_deadline", wall["t"] + 60 if due and wall["idle"] < gapp.PRESENT_S else None),
+        setattr(self, "break_deadline", wall["t"] + 60 if due and self._away_idle() < gapp.PRESENT_S else None),
         setattr(self, "break_kill_at", None)))
     monkeypatch.setattr(gapp.Guardian, "_open_nudge",
                         lambda self, m: calls["nudge"].append(m) or setattr(self, "nudge_win", object()))
@@ -40,6 +41,12 @@ def env(monkeypatch):
     monkeypatch.setattr(gapp.time, "time", lambda: wall["t"])
     monkeypatch.setattr(gapp, "idle_seconds", lambda: wall["idle"])
     monkeypatch.setattr(gapp, "_beep", lambda: None)
+
+    class SimplePresence:                             # wall["idle"] = seconds since you were really here
+        def __init__(self, *a): pass
+        def sample(self, *a): pass
+        def idle(self, now): return wall["idle"]
+    monkeypatch.setattr(gapp, "Presence", SimplePresence)
     clock = [NOON]
     store = MemoryStore()
     store.set("meta", "settings", {"gaming": {"requireWorkout": False, "requireKoreanReviews": False,
@@ -306,6 +313,57 @@ def test_afk_pauses_sets_and_never_closes_the_game_while_away(env):
     assert calls["break"] == [True, True] and g.break_deadline is not None
     later(61, 0)
     assert calls["close"] == [{4242}]
+
+
+def test_a_lone_input_every_50_s_is_not_you():
+    """AION 2 sends a zero-move mouse event every 50 s while it runs (keep-awake). Sampled every half second."""
+    p = Presence(1000.0, 0)                           # last really here at t=1000
+    for k in range(1, 9):
+        blip = 1000 + 50 * k
+        for i in range(100):
+            now = blip + i * 0.5
+            p.sample(now, now - blip)
+    assert p.idle(1450) == 450
+    p.sample(1460, 0)                                 # one moment (a bumped mouse) isn't enough
+    assert p.idle(1460) == 460
+    p.sample(1461, 0)                                 # a second moment soon after: you're back
+    assert p.idle(1461) == 0
+    for i in range(1, 20):                            # using the PC normally
+        p.sample(1461 + i * 0.5, 0.2)
+    assert p.idle(1471) < 1
+
+
+def test_game_keep_awake_input_doesnt_stop_afk_or_start_the_countdown(env):
+    make, running, calls, wall, clock, store, rules = env
+    g = make()
+    sid = rules.start_session(0, "sleep")
+    running.append(GAME)
+    g._step()
+    last = [wall["t"]]
+
+    def tick(sec=2.5, user=False, blip=False):
+        wall["t"] += sec
+        clock[0] += sec * 1000
+        if user or blip:
+            last[0] = wall["t"]
+        wall["idle"] = wall["t"] - last[0]
+        g._step()
+
+    tick(27 * 60, user=True)                          # played 27 min
+    g.presence = Presence(wall["t"], 0)               # from here, the real thing, fed by each guardian tick
+    tick(user=True)
+    left = clock[0]
+    for i in range(1, 6 * 24 + 1):                    # 6 min on the bed; the game pokes the mouse every 50 s
+        tick(blip=i % 20 == 0)
+    assert calls["break"] == [True]                   # the set came due at minute 30 while away...
+    assert not calls["close"] and not calls["kill"]   # ...and the pokes never started the countdown
+    assert g.break_win is None                        # AFK at 5 min: the clock rewound, the prompt went away
+    assert store.get("sessions", sid)["awaySince"] == pytest.approx(left, abs=1)
+    tick(user=True)
+    tick(user=True)                                   # back
+    s = store.get("sessions", sid)
+    assert s["awaySince"] is None and s["away"][0]["s"] == pytest.approx(left, abs=1)
+    assert g.st["sets"]["playedSince"] == pytest.approx(27, abs=0.1)
 
 
 def test_set_prompt_countdown_starts_when_you_come_back(env):

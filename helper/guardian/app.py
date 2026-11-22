@@ -38,7 +38,7 @@ from ..cloud import Increment
 from ..gaming.rules import Rules, RuleError, now_ms
 from ..settings import day_start, with_defaults
 from . import detect
-from .inputwatch import InputWatch, fmt_idle
+from .inputwatch import InputWatch, Presence, fmt_idle
 
 TICK_MS = 2500
 CLOSE_GRACE_S = 15
@@ -172,6 +172,7 @@ class Guardian:
         self.break_kill_at: float | None = None
         self.break_story = ""                      # why the countdown started, for the set_missed event
         self.input_watch = InputWatch()            # logs which device ended an idle stretch (helper.log)
+        self.presence = Presence(time.time(), idle_seconds())   # ignores lone fake input (AION 2 keep-awake)
         self.last_set_reminder = 0.0
         # get-up nudges while working
         self.nudge_win: tk.Toplevel | None = None
@@ -292,6 +293,7 @@ class Guardian:
         threading.Thread(target=hotkey_thread, args=(self.hotkeys,), daemon=True, name="hotkey").start()
         self.input_watch.start()
         self.root.after(500, self._tick)
+        self.root.after(500, self._sample_presence)
         self.root.after(800, lambda: self._toast("Personal Helper is on — games run inside sessions.", GOOD, seconds=5))
         self.root.mainloop()
 
@@ -301,6 +303,17 @@ class Guardian:
         except Exception:
             log.exception("tick failed")
         self.root.after(TICK_MS, self._tick)
+
+    def _sample_presence(self) -> None:
+        try:
+            self.presence.sample(time.time(), idle_seconds())
+        except Exception:
+            log.exception("presence sample failed")
+        self.root.after(500, self._sample_presence)
+
+    def _away_idle(self) -> float:
+        """Seconds since you were really at the PC (lone fake inputs don't count; see Presence)."""
+        return self.presence.idle(time.time())
 
     def _step(self) -> None:
         if time.time() - self.lib.refreshed > 300:
@@ -327,7 +340,7 @@ class Guardian:
         try:
             sess = self._session()
             idle = idle_seconds()
-            self.input_watch.log_after = 20 if sess else 60
+            self.presence.sample(time.time(), idle)
             if idle >= PRESENT_S:
                 self.input_watch.arm(idle)
             self._move_check(in_session=sess is not None or self._eating())
@@ -402,7 +415,7 @@ class Guardian:
     def _track_away(self, sess, now) -> None:
         """AFK: after afkMinutes without keyboard/mouse, mark the session away from your last input; back on input."""
         limit = float(self.cfg.get("afkMinutes") or 0) * 60
-        idle = idle_seconds()
+        idle = self._away_idle()
         away = self.away_sid == sess["id"] or bool(sess.get("awaySince"))
         if limit > 0 and idle >= limit:
             if not away:
@@ -455,8 +468,8 @@ class Guardian:
             self._open_break(sets, due=True)
             return
         if self.break_deadline is None:
-            # Opened while you were away from the PC: the save-your-game countdown starts at your first input after.
-            idle = idle_seconds()
+            # Opened while you were away from the PC: the save-your-game countdown starts when you're back.
+            idle = self._away_idle()
             if idle < t - self.break_opened:
                 grace = int(self.cfg["graceSeconds"])
                 self.break_deadline = t + grace
@@ -986,7 +999,7 @@ class Guardian:
         self.break_due = due
         self.break_opened = time.time()
         # Away from the PC when it opens? Then the countdown waits for you (see _check_sets).
-        idle = idle_seconds()
+        idle = self._away_idle()
         self.break_deadline = time.time() + grace if due and idle < PRESENT_S else None
         if due:
             self.break_story = (f"prompt at {hms(self.clock())}, last input {fmt_idle(idle)} before"

@@ -108,6 +108,33 @@ def fmt_idle(s: float) -> str:
     return f"{s // 60}m {s % 60:02d}s" if s >= 60 else f"{s}s"
 
 
+class Presence:
+    """When you were last really at the PC, for AFK and the set prompt's countdown.
+
+    Windows' idle timer resets on any input, including fake input from programs: AION 2 sends a zero-move mouse
+    event every 50 s while it runs (seen 2026-11-22), so the timer never got past 50 s and AFK never triggered.
+    A person at the PC makes input at several moments in a row; a keep-awake event (or a bumped mouse) is one
+    moment. So an input counts only when another comes within PAIR_S of it. Sampled from the idle timer every half
+    second; Raw Input can't do this job, since a game running as administrator hides it from us while in front.
+    """
+    PAIR_S = 4.0     # two separate inputs this close together: you
+    SAME_S = 0.3     # closer than this is one moment (a click's down+up, sampling jitter)
+
+    def __init__(self, now: float, idle: float):
+        self.seen = self.real = now - idle    # newest input instant seen / newest that counts
+
+    def sample(self, now: float, idle: float) -> None:
+        last = now - idle
+        if last <= self.seen + self.SAME_S:
+            return
+        if last - self.seen <= self.PAIR_S:
+            self.real = last
+        self.seen = last
+
+    def idle(self, now: float) -> float:
+        return max(0.0, now - self.real)
+
+
 class Burst:
     """Input seen in the first SUMMARY_S after an idle stretch."""
 
