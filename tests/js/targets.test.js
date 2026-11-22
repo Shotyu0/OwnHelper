@@ -97,6 +97,8 @@ test('no daily cap and sets: dropping or easing them waits until tomorrow', () =
   assert.ok(isLooser(g, { ...g, dinnerMinutes: 60 }));               // longer dinner break
   assert.ok(!isLooser(g, { ...g, dinnerMinutes: 0 }));               // switching it off is tighter
   assert.ok(isLooser(g, { ...g, dinnerFrom: 17 }) && isLooser(g, { ...g, dinnerTo: 22 }));   // wider window
+  assert.ok(isLooser(g, { ...g, afkMinutes: 2 }));                   // counted as away sooner
+  assert.ok(!isLooser(g, { ...g, afkMinutes: 10 }) && !isLooser(g, { ...g, afkMinutes: 0 }));
 });
 
 test('dinner break: once a day, 6–9 PM, active until it ends', async () => {

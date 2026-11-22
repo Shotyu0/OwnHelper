@@ -88,6 +88,10 @@ then Right Alt toggles 한/A. On Android, add Korean in Gboard / Samsung Keyboar
    dinner"), the set prompts ("Eating dinner"), **Ctrl+Alt+D**, or the Gaming page. Sets wait 45 min (Ctrl+Alt+D
    again or "Done eating" ends it early), play during dinner doesn't count, and a set that comes due is moved to
    right after dinner, not skipped.
+   **Away from the PC** (AFK, e.g. leaving the game idling): after 5 minutes with no keyboard or mouse input, the
+   time away (from your last input) doesn't count toward the next set, and an overdue set never closes the game
+   while you're gone: its 60 s countdown starts when you touch the keyboard or mouse again. Game controllers aren't
+   seen by this check.
 5. **At the desk**: after 30 minutes at the PC, a small nudge to get up and walk for 3–5 minutes. It clears
    itself once the PC sees you've been away for 3 minutes. Not shown while gaming. With a treadmill under the
    desk (Settings), it asks you to walk while you work instead. "Walking now" (or **Ctrl+Alt+W**, or the button on

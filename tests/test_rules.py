@@ -211,6 +211,40 @@ def test_a_set_that_comes_due_while_eating_waits_until_after_dinner():
     assert not st["dinner"]["active"] and st["sets"]["dueAt"] < clock[0]
 
 
+def test_time_away_from_the_pc_doesnt_count_toward_sets():
+    clock = [SAT_NOON]
+    store, r = make(clock, **open_gate())
+    sid = r.start_session(0, "sleep")
+    clock[0] += 20 * MIN
+    r.mark_away(sid, clock[0])                              # AFK
+    clock[0] += 60 * MIN
+    st = r.status()["sets"]
+    assert st["awaySince"] == SAT_NOON + 20 * MIN and st["playedSince"] == 20 and st["dueAt"] == clock[0] + 10 * MIN
+    r.mark_back(sid, clock[0])
+    r.mark_back(sid, clock[0] + 5)                          # a second call changes nothing
+    clock[0] += 5 * MIN
+    st = r.status()["sets"]
+    assert st["awaySince"] is None and st["dueAt"] == clock[0] + 5 * MIN
+    assert store.get("sessions", sid)["away"] == [{"s": SAT_NOON + 20 * MIN, "e": SAT_NOON + 80 * MIN}]
+    r.mark_away(sid, clock[0])
+    clock[0] += 10 * MIN
+    r.end_session()                                         # ending while away closes the away period
+    s = store.get("sessions", sid)
+    assert s["awaySince"] is None and s["away"][-1] == {"s": clock[0] - 10 * MIN, "e": clock[0]}
+
+
+def test_away_during_dinner_is_only_taken_off_once():
+    clock = [SAT_6PM]
+    store, r = make(clock, **open_gate())
+    sid = r.start_session(0, "dishes")
+    clock[0] += 10 * MIN
+    r.start_dinner()                                        # 45 min: until +55
+    r.mark_away(sid, SAT_6PM + 20 * MIN)
+    r.mark_back(sid, SAT_6PM + 70 * MIN)                    # away overlaps the end of dinner
+    clock[0] = SAT_6PM + 80 * MIN
+    assert r.status()["sets"]["playedSince"] == 20          # 80 min minus 60 min eating-or-away
+
+
 def test_korean_quota_comes_from_the_web_apps_daily_plan():
     clock = [SAT_NOON]
     store, r = make(clock)

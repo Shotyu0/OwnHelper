@@ -30,8 +30,9 @@ def env(monkeypatch):
                         lambda self, sess: calls["timeup"].append(sess["id"]) or setattr(self, "timeup_win", object()))
     calls["break"], calls["nudge"] = [], []
     monkeypatch.setattr(gapp.Guardian, "_open_break", lambda self, sets, due: calls["break"].append(due) or (
-        setattr(self, "break_win", object()), setattr(self, "break_due", due),
-        setattr(self, "break_deadline", wall["t"] + 60 if due else None), setattr(self, "break_kill_at", None)))
+        setattr(self, "break_win", object()), setattr(self, "break_due", due), setattr(self, "break_opened", wall["t"]),
+        setattr(self, "break_deadline", wall["t"] + 60 if due and wall["idle"] < gapp.PRESENT_S else None),
+        setattr(self, "break_kill_at", None)))
     monkeypatch.setattr(gapp.Guardian, "_open_nudge",
                         lambda self, m: calls["nudge"].append(m) or setattr(self, "nudge_win", object()))
     monkeypatch.setattr(gapp.Guardian, "_destroy", lambda self, attr: setattr(self, attr, None))
@@ -273,6 +274,57 @@ def test_dinner_break_holds_the_set_until_after_dinner(env):
     g.hotkeys.put("dinner")                           # done eating: the postponed set is due now
     g._step()
     assert not g.st["dinner"]["active"] and calls["break"] == [True, True]
+
+
+def test_afk_pauses_sets_and_never_closes_the_game_while_away(env):
+    make, running, calls, wall, clock, store, rules = env
+    g = make()
+    sid = rules.start_session(0, "sleep")
+    running.append(GAME)
+    g._step()
+
+    def later(sec, idle):
+        wall["t"] += sec
+        clock[0] += sec * 1000
+        wall["idle"] = idle
+        g._step()
+
+    later(31 * 60, 90)                                # walked off 90 s ago; the set came due meanwhile
+    assert calls["break"] == [True] and g.break_deadline is None
+    later(120, 210)                                   # still away: no countdown, nothing closed
+    later(120, 330)                                   # 5+ min: away since the last input; the clock rewinds
+    g._step()
+    assert not calls["close"] and not calls["kill"] and g.break_win is None
+    assert store.get("sessions", sid)["awaySince"] == NOON + 29.5 * MIN
+    toasts = len(calls["toast"])
+    later(3600, 3930)                                 # an hour of idling in-game
+    assert g.st["sets"]["playedSince"] == 29.5 and len(calls["toast"]) == toasts and calls["break"] == [True]
+    later(0, 1)                                       # back at the keyboard
+    assert store.get("sessions", sid)["away"][0]["e"] == clock[0] - 1000
+    later(60, 0)                                      # the half minute left runs out: the set is due as usual
+    assert calls["break"] == [True, True] and g.break_deadline is not None
+    later(61, 0)
+    assert calls["close"] == [{4242}]
+
+
+def test_set_prompt_countdown_starts_when_you_come_back(env):
+    make, running, calls, wall, clock, store, rules = env
+    g = make()
+    rules.start_session(0, "sleep")
+    running.append(GAME)
+    g._step()
+    wall["t"] += 30 * 60 + 5
+    clock[0] += (30 * 60 + 5) * 1000
+    wall["idle"] = 60                                 # stepped away a minute before it came due
+    g._step()
+    assert calls["break"] == [True] and g.break_deadline is None
+    wall["t"] += 50
+    wall["idle"] = 3                                  # back (before 5 min): input after the prompt opened
+    g._step()
+    assert g.break_deadline == wall["t"] + 60 and not calls["close"]
+    wall["t"] += 61
+    g._step()
+    assert calls["close"] == [{4242}]
 
 
 def test_no_desk_nudges_while_eating(env):

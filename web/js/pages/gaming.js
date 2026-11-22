@@ -44,6 +44,8 @@ export async function render(main, ctx) {
         ${g.dinnerMinutes > 0 ? `<li><b>Dinner break</b> (${hourLabel(g.dinnerFrom)}–${hourLabel(g.dinnerTo)}, once a day): sets wait ${g.dinnerMinutes} min while you eat,
           and playing during it doesn't count. A set that comes due while you eat is moved to right after, not skipped. Start it here,
           from the PC's set prompts or session dialog, or with <b>Ctrl+Alt+D</b>.</li>` : ''}
+        ${g.afkMinutes > 0 ? `<li><b>Away from the PC</b> (no keyboard or mouse for ${g.afkMinutes} min): that time doesn't count toward the next set,
+          and an overdue set never closes the game while you're gone. Its 60-second countdown starts when you're back.</li>` : ''}
         <li><b>Workout and Korean first</b>: the fun thing comes after the hard thing (Premack principle).</li>
         <li><b>Overrides cost a minute and a reason</b>, and only exist on the PC prompt. Loosening a rule in Settings waits until tomorrow.</li>
       </ul>
@@ -72,6 +74,7 @@ export async function render(main, ctx) {
     const dn = dinnerState(g, daily, ctx.now());
     setsEl.innerHTML = `<h2>Sets</h2>
       ${dn.active ? `<div class="big">Dinner</div><div class="muted small">sets wait until ${fmtClock(dn.end)}; playing while you eat doesn't count</div>`
+        : due != null && st.awaySince ? `<div class="big">${due > 0 ? clock(due) : 'now'}</div><div class="muted small">paused: you've been away from the PC since ${fmtClock(st.awaySince)}${due > 0 ? '' : '. The game stays open until you\'re back'}</div>`
         : due != null ? `<div class="big">${due > 0 ? clock(due) : 'now'}</div><div class="muted small">${due > 0 ? 'until the next set' : g.setsRequired ? 'set due: the game is closed until it\'s logged' : 'set overdue'}</div>`
         : `<p class="small">One every <b>${g.setEveryMinutes} min</b> of play.</p>`}
       <p>Next: <b>${esc(setText(nextItems()))}</b></p>

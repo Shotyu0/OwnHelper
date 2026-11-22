@@ -25,6 +25,9 @@ export const DEFAULTS = {
     // Dinner break (web/js/dinner.js): once a day, starting between dinnerFrom and dinnerTo (local hours), sets wait
     // dinnerMinutes while you eat, and play during it doesn't count toward the next set. 0 = off.
     dinnerMinutes: 45, dinnerFrom: 18, dinnerTo: 21,
+    // Away from the PC (AFK): no keyboard/mouse for afkMinutes pauses the set clock, and an overdue set doesn't close
+    // the game until you're back (PC guardian). 0 = off.
+    afkMinutes: 5,
     warnAtMinutes: [10, 2], graceSeconds: 60,
     overrideWaitSeconds: 60, overrideMinReasonChars: 25, overrideMaxPerDay: 1, overrideExtendMinutes: 15,
   },
@@ -57,6 +60,7 @@ export function isLooser(old, next) {
   if (LESS_IS_LOOSER.some(k => next[k] < old[k])) return true;
   if (OFF_IS_LOOSER.some(k => old[k] && !next[k])) return true;
   if (!old.countMinimumWorkout && next.countMinimumWorkout) return true;
+  if (noLimit(next.afkMinutes) < noLimit(old.afkMinutes)) return true;   // counted as away sooner (0 = off, strictest)
   return Math.max(...next.sessionChoices.map(noLimit)) > Math.max(...old.sessionChoices.map(noLimit));
 }
 

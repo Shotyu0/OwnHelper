@@ -12,6 +12,10 @@ Dinner break (same as web/js/dinner.js): once a day, started between dinnerFrom 
 dinnerMinutes (or until "done eating"). Play during it doesn't count toward the next set, and a set that comes
 due while you eat waits until the break ends: postponed, never skipped. Stored in daily/{day}.dinner {start, end}.
 
+Away from the PC (AFK): after afkMinutes with no keyboard or mouse input, the guardian marks the session away
+(sessions/{id}.awaySince, backdated to your last input; finished periods go to .away [{s, e}]). Time away doesn't
+count toward the next set, and an overdue set only starts its close-the-game countdown once you're back.
+
 Gate inputs (same as web/js/pages/today.js gateInputs):
   workouts/{id}.day/status, exercises (watch) .start/.dur, cards .due/.introducedAt/.newRank,
   daily/{calendar day}.steps (kept by the relay).
@@ -39,6 +43,17 @@ class RuleError(Exception):
 
 def now_ms() -> float:
     return time.time() * 1000
+
+
+def merged(intervals) -> list[list[float]]:
+    """Overlapping (start, end) pairs merged, so time that's both dinner and away is only taken off once."""
+    out: list[list[float]] = []
+    for a, b in sorted((a, b) for a, b in intervals if b > a):
+        if out and a <= out[-1][1]:
+            out[-1][1] = max(out[-1][1], b)
+        else:
+            out.append([a, b])
+    return out
 
 
 def hour_label(h) -> str:
@@ -188,10 +203,15 @@ class Rules:
         dn = dinner or self.dinner()
         eat0, eat1 = (dn["start"], min(dn["end"], now)) if dn["start"] and dn["end"] else (0, 0)
 
-        def played_in(s):                         # play since the last set, minus play while eating
+        def played_in(s):                         # play since the last set, minus eating and time away
             a, b = max(s["startedAt"], since), self.session_end(s, now)
-            eating = max(0.0, min(b, eat1) - max(a, eat0))
-            return max(0.0, b - a - eating) / MIN
+            if b <= a:
+                return 0.0
+            off = [(eat0, eat1)] + [(x["s"], x.get("e") or now) for x in s.get("away") or []]
+            if s.get("awaySince"):
+                off.append((s["awaySince"], now))
+            paused = sum(max(0.0, min(b, y) - max(a, x)) for x, y in merged(off))
+            return max(0.0, b - a - paused) / MIN
 
         played = sum(played_in(s) for s in sessions)
         left = every - played
@@ -208,9 +228,20 @@ class Rules:
         return {
             "every": every, "required": bool(g.get("setsRequired")), "minSeconds": int(g.get("setMinSeconds", 30)),
             "today": len(done), "lastAt": last, "playedSince": round(played, 1),
+            "awaySince": sess.get("awaySince") if sess else None,
             "dueAt": due,
             "next": plan[len(done) % len(plan)],
         }
+
+    def mark_away(self, sid: str, since: float) -> None:
+        self.store.update("sessions", sid, {"awaySince": since})
+
+    def mark_back(self, sid: str, at: float) -> None:
+        """Close the open away period (reads the session fresh, so calling it twice is harmless)."""
+        s = self.store.get("sessions", sid) or {}
+        if s.get("awaySince"):
+            self.store.update("sessions", sid, {"awaySince": None,
+                                                "away": (s.get("away") or []) + [{"s": s["awaySince"], "e": at}]})
 
     def log_set(self, items: list[dict], source: str = "pc") -> str:
         sess = self.active_session()
@@ -304,6 +335,7 @@ class Rules:
         if not sess:
             return
         end = self.session_end(sess, self.clock())
+        self.mark_back(sess["id"], end)
         self.store.update("sessions", sess["id"], {"open": False, "endedAt": end, "endReason": reason})
 
     def publish(self, st: dict | None = None) -> dict:
@@ -312,7 +344,8 @@ class Rules:
         now, today = self.clock(), self.today()
         doc = {**st, "at": now}
         if st["session"]:
-            doc["session"] = {k: st["session"].get(k) for k in ("id", "startedAt", "plannedEnd", "nextAction", "games")}
+            doc["session"] = {k: st["session"].get(k) for k in ("id", "startedAt", "plannedEnd", "nextAction", "games",
+                                                                 "awaySince")}
         self.store.set("meta", "gaming", doc)
         self.store.update("daily", today, {"day": today, "gameMinutes": round(st["used"], 1)})
         return st

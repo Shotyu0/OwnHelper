@@ -6,6 +6,8 @@
                               then force-closed 15 s later
   set due (every 30 min    -> warnings at 10 and 2 minutes, then a "set time" prompt; if the set isn't logged
    of play)                   within 60 s the game is closed, and stays closed until it is
+  away from the PC         -> no keyboard/mouse for 5 min: time away doesn't count toward the next set, and an
+                              overdue set's countdown waits until you're back (input again), so AFK never closes it
   dinner (6-9 PM, once     -> "Eating dinner" (session dialog, set prompts, Ctrl+Alt+D, or the phone): sets wait
    a day)                     while you eat; play during it doesn't count. Ctrl+Alt+D again when you're done
   override                 -> 60 s wait + written reason; logged on the dashboard; limited per day
@@ -71,6 +73,7 @@ def idle_seconds() -> float:
     return ((ctypes.windll.kernel32.GetTickCount() - li.dwTime) & 0xFFFFFFFF) / 1000.0
 
 
+PRESENT_S = 10                 # input this recently: you're at the PC (a set prompt's countdown can start)
 WALK_IDLE_END_S = 10 * 60      # away from the PC this long during a walk: it ended when you left
 WALK_ASK_TIMEOUT_S = 5 * 60     # "still walking?" unanswered this long: ended when asked
 
@@ -157,7 +160,9 @@ class Guardian:
         # set due during play
         self.break_win: tk.Toplevel | None = None
         self.break_due = False               # opened because the set is overdue (vs. "do it early")
-        self.break_deadline: float | None = None
+        self.break_deadline: float | None = None   # None while you're away: the countdown starts when you're back
+        self.break_opened = 0.0
+        self.away_sid: str | None = None           # session marked away (AFK)
         self.break_kill_at: float | None = None
         self.last_set_reminder = 0.0
         # get-up nudges while working
@@ -378,7 +383,23 @@ class Guardian:
                 if games and remaining > w * 60 - 30:
                     then = f" Then: {sess['nextAction']}" if sess.get("nextAction") else ""
                     self._toast(f"{w} minute{'s' if w != 1 else ''} left.{then}", WARN if w > 2 else BAD)
+        self._track_away(sess, now)
         self._check_sets(sess, games, now)
+
+    def _track_away(self, sess, now) -> None:
+        """AFK: after afkMinutes without keyboard/mouse, mark the session away from your last input; back on input."""
+        limit = float(self.cfg.get("afkMinutes") or 0) * 60
+        idle = idle_seconds()
+        away = self.away_sid == sess["id"] or bool(sess.get("awaySince"))
+        if limit > 0 and idle >= limit:
+            if not away:
+                self.rules.mark_away(sess["id"], now - idle * 1000)
+                self.away_sid = sess["id"]
+                self.dirty = True
+        elif away:
+            self.rules.mark_back(sess["id"], now - idle * 1000)
+            self.away_sid = None
+            self.dirty = True
 
     # ------------------------------------------------------------------ sets during play
     def _check_sets(self, sess, games, now) -> None:
@@ -389,7 +410,9 @@ class Guardian:
             return
         left = (sets["dueAt"] - now) / 1000
         if left > 0:
-            self._clear_break(only_due=True)       # e.g. the set was just logged on the phone
+            self._clear_break(only_due=True)       # e.g. the set was just logged on the phone, or you went AFK
+            if self.away_sid == sess["id"]:
+                return                             # paused while you're away: no warnings into an empty room
             for w in self.cfg["warnAtMinutes"]:
                 key = ("set", round(sets["dueAt"] / 60000), w)
                 if key in self.warned or left > w * 60:
@@ -413,7 +436,12 @@ class Guardian:
             self._clear_break()
             self._open_break(sets, due=True)
             return
-        if not games or self.break_deadline is None or t < self.break_deadline:
+        if self.break_deadline is None:
+            # Opened while you were away from the PC: the save-your-game countdown starts at your first input after.
+            if idle_seconds() < t - self.break_opened:
+                self.break_deadline = t + int(self.cfg["graceSeconds"])
+            return
+        if not games or t < self.break_deadline:
             return
         pids = {g.pid for g in games}
         if self.break_kill_at is None:
@@ -927,7 +955,9 @@ class Guardian:
         min_s = int(sets.get("minSeconds", 30))
         w = self.break_win = self._window("Set time")
         self.break_due = due
-        self.break_deadline = time.time() + grace if due else None
+        self.break_opened = time.time()
+        # Away from the PC when it opens? Then the countdown waits for you (see _check_sets).
+        self.break_deadline = time.time() + grace if due and idle_seconds() < PRESENT_S else None
         self.break_kill_at = None
         w.protocol("WM_DELETE_WINDOW", (lambda: None) if due else (lambda: self._clear_break()))
         self._label(w, "Set time" if due else "Your next set", 20, bold=True)
@@ -972,6 +1002,8 @@ class Guardian:
                 left = int(self.break_deadline - time.time())
                 parts.append(f"Save your game: it closes in {left}s unless the set is logged" if left > 0
                              else "The game stays closed until the set is logged.")
+            elif due:
+                parts.append(f"You're away, so the game stays open. When you're back, you'll have {grace}s.")
             count.config(text="\n".join(parts))
             w.after(500, tick)
 
