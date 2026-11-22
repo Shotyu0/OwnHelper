@@ -1,5 +1,6 @@
-import { fmtDateTime, calendarDay, addDays } from '../time.js';
+import { fmtDateTime, fmtClock, calendarDay, addDays } from '../time.js';
 import { effectiveGaming, sessionLabel } from '../settings.js';
+import { dinnerState, startDinner, endDinner, hourLabel } from '../dinner.js';
 import { verifySet } from '../activity.js';
 import { setText, syncSetPlan } from '../workout.js';
 import { esc, $, pill, check, toast } from '../ui.js';
@@ -40,6 +41,9 @@ export async function render(main, ctx) {
           follow-through (Gollwitzer &amp; Sheeran, 2006); deciding in advance beats deciding mid-game (Ariely &amp; Wertenbroch, 2002).</li>
         <li><b>A set every ${g.setEveryMinutes || '—'} minutes of play</b> is the stop point: you get up, move, and choose again with a clear head.
           ${g.setsRequired ? 'An overdue set closes the game until it\'s logged.' : 'Overdue sets only remind you.'} It's also free training volume (<a href="#/plan">Plan</a> has the research).</li>
+        ${g.dinnerMinutes > 0 ? `<li><b>Dinner break</b> (${hourLabel(g.dinnerFrom)}–${hourLabel(g.dinnerTo)}, once a day): sets wait ${g.dinnerMinutes} min while you eat,
+          and playing during it doesn't count. A set that comes due while you eat is moved to right after, not skipped. Start it here,
+          from the PC's set prompts or session dialog, or with <b>Ctrl+Alt+D</b>.</li>` : ''}
         <li><b>Workout and Korean first</b>: the fun thing comes after the hard thing (Premack principle).</li>
         <li><b>Overrides cost a minute and a reason</b>, and only exist on the PC prompt. Loosening a rule in Settings waits until tomorrow.</li>
       </ul>
@@ -60,17 +64,23 @@ export async function render(main, ctx) {
   let shown = '';
 
   // ---- sets card: next set, a timer to do it, and today's sets checked against the watch
-  let timer = null, timerEnd = 0;
+  let timer = null, timerEnd = 0, daily = null;
   const nextItems = () => last?.sets?.next || variants[setsToday.length % variants.length];
   const drawSets = () => {
     const st = last?.sets;
     const due = st?.dueAt ? st.dueAt - ctx.now() : null;
+    const dn = dinnerState(g, daily, ctx.now());
     setsEl.innerHTML = `<h2>Sets</h2>
-      ${due != null ? `<div class="big">${due > 0 ? clock(due) : 'now'}</div><div class="muted small">${due > 0 ? 'until the next set' : g.setsRequired ? 'set due: the game is closed until it\'s logged' : 'set overdue'}</div>`
+      ${dn.active ? `<div class="big">Dinner</div><div class="muted small">sets wait until ${fmtClock(dn.end)}; playing while you eat doesn't count</div>`
+        : due != null ? `<div class="big">${due > 0 ? clock(due) : 'now'}</div><div class="muted small">${due > 0 ? 'until the next set' : g.setsRequired ? 'set due: the game is closed until it\'s logged' : 'set overdue'}</div>`
         : `<p class="small">One every <b>${g.setEveryMinutes} min</b> of play.</p>`}
       <p>Next: <b>${esc(setText(nextItems()))}</b></p>
       <p id="setbtn">${timer ? `<button disabled>Doing it… ${Math.ceil((timerEnd - Date.now()) / 1000)}s</button>`
         : timerEnd && Date.now() >= timerEnd ? '<button class="primary" data-done>Done ✓ log it</button>' : '<button data-start>Start a set</button>'}</p>
+      ${dn.active ? '<p><button data-dinner-end>Done eating</button></p>'
+        : dn.canStart ? `<p><button data-dinner>Dinner break</button> <span class="small muted">sets wait ${dn.minutes} min while you eat</span></p>`
+        : dn.start ? `<p class="small muted">Dinner break today: ${fmtClock(dn.start)}–${fmtClock(dn.end)}</p>`
+        : dn.minutes > 0 ? `<p class="small muted">Dinner break: ${hourLabel(dn.from)}–${hourLabel(dn.to)}, once a day.</p>` : ''}
       <p class="small muted">Do it any time in the last few minutes before it's due, between matches. Logging it here unlocks the PC within seconds.</p>
       <h3>Today</h3>
       ${setsToday.map(x => { const v = VERIFY[verifySet(activity, x.at).status]; return `<div class="check">${pill(v[0], v[1])}
@@ -90,6 +100,17 @@ export async function render(main, ctx) {
       setsToday.unshift({ id, ...doc });
       timerEnd = 0;
       toast('Set logged.', 'ok');
+      drawSets();
+    } else if (e.target.closest('[data-dinner]')) {
+      const dn = dinnerState(g, daily, ctx.now());
+      if (!dn.canStart) return drawSets();
+      daily = { ...daily, dinner: await startDinner(store, ctx.today(), dn, ctx.now()) };
+      toast(`Enjoy your dinner. Sets wait until ${fmtClock(daily.dinner.end)}.`, 'ok');
+      drawSets();
+    } else if (e.target.closest('[data-dinner-end]')) {
+      await endDinner(store, ctx.today(), dinnerState(g, daily, ctx.now()), ctx.now());
+      daily = { ...daily, dinner: { ...daily.dinner, end: ctx.now() } };
+      toast('Dinner done: the set clock is running again.', 'ok');
       drawSets();
     }
   });
@@ -151,7 +172,8 @@ export async function render(main, ctx) {
   });
   drawSets();
   const unwatch = store.watch('meta', 'gaming', draw);
+  const unwatchDay = store.watch('daily', ctx.today(), d => { daily = d; if (!timer) drawSets(); });
   // Countdowns only; never redraws the plan form.
-  const tick = setInterval(() => { if (last?.session) draw(last); else if (last?.sets?.dueAt && !timer) drawSets(); }, 5000);
-  return () => { unwatch(); clearInterval(tick); if (timer) clearInterval(timer); };
+  const tick = setInterval(() => { if (last?.session) draw(last); else if ((last?.sets?.dueAt || daily?.dinner) && !timer) drawSets(); }, 5000);
+  return () => { unwatch(); unwatchDay(); clearInterval(tick); if (timer) clearInterval(timer); };
 }

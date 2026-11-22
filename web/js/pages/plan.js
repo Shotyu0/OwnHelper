@@ -2,6 +2,7 @@ import { calendarDay, fmtDateTime, DAY_KEYS } from '../time.js';
 import { GOALS, SOURCES, KG_PER_LB, bodyNow, stepTarget, stepPlan, stepGoalNow, protein, lossRate, fmtWeight, fmtRate, ageOn } from '../targets.js';
 import { koreanPlan, LEARN_AHEAD } from '../korean.js';
 import { syncSetPlan, setText, dayLabel } from '../workout.js';
+import { hourLabel } from '../dinner.js';
 import { esc, $, toast } from '../ui.js';
 
 const cite = keys => `<span class="small muted">${keys.map(k => `<a href="${SOURCES[k][1]}" target="_blank" rel="noopener">${esc(SOURCES[k][0].split(' — ')[0])}</a>`).join(' · ')}</span>`;
@@ -96,10 +97,13 @@ export async function render(main, ctx) {
           : `Sized from your home-workout levels at about 70% of the bottom of the rep range, so it stays well short of failure and
           doesn't hurt your next workout. When you level up in a workout, the sets follow. Edit them in Settings.`}
           ${g.setsRequired ? 'If a set is overdue, the game is closed until you log it.' : 'Overdue sets only remind you.'}</p>
+        ${g.dinnerMinutes > 0 ? `<p class="small"><b>Dinner break</b> (${hourLabel(g.dinnerFrom)}–${hourLabel(g.dinnerTo)}, once a day): no sets while you eat.
+          Sets wait ${g.dinnerMinutes} min, play during dinner doesn't count, and a set that comes due is moved to right after.
+          Moving soon after a meal is a good habit anyway: light walking breaks after eating lower the blood-sugar rise.</p>` : ''}
         <p class="small muted">Brief "exercise snacks" through the day build strength and fitness; with weekly volume equal, splitting it into more,
           smaller bouts works about as well; 1–2 minute bursts of vigorous effort in daily life are linked to lower mortality.
           Your watch checks each set afterwards by looking for a heart-rate rise. It can't unlock the game itself, because it syncs in batches every 15+ minutes.</p>
-        ${cite(['minDose2024', 'freq2019', 'daily2022', 'vilpa2022'])}</div>
+        ${cite(['minDose2024', 'freq2019', 'daily2022', 'vilpa2022', ...(g.dinnerMinutes > 0 ? ['buffey2022'] : [])])}</div>
 
       <div class="card"><h2>Training &amp; food</h2>
         <table class="small">${DAY_KEYS.map(d => `<tr><td>${d[0].toUpperCase() + d.slice(1)}</td><td>${esc(dayLabel(s.workout.schedule[d]))}</td></tr>`).join('')}</table>

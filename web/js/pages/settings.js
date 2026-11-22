@@ -60,6 +60,9 @@ export async function render(main, ctx) {
       <label>Your sets (one line per set; they take turns. Leave empty to use your workout levels.)</label>
       <textarea name="setMenu" rows="3" placeholder="${esc(formatSetMenu(setPlan(s, {})))}">${esc(formatSetMenu(g.setMenu))}</textarea>
       <p class="small muted">e.g. <code>6 Push-up + 15 Bodyweight squat + Bar curls (stop 2 short of failure)</code></p>
+      ${num('dinnerMinutes', g.dinnerMinutes, 'Dinner break: sets wait this long while you eat (min, 0 = off)', 'min="0" max="90"')}
+      ${num('dinnerFrom', g.dinnerFrom, '…can start from (hour, 0–23)', 'min="0" max="23"')}
+      ${num('dinnerTo', g.dinnerTo, '…until (hour, 1–24)', 'min="1" max="24"')}
       ${num('dailyCapWeekday', g.dailyCapWeekday, 'Daily cap, weekdays (min, 0 = none)', 'min="0"')}
       ${num('dailyCapWeekend', g.dailyCapWeekend, 'Daily cap, weekends (min, 0 = none)', 'min="0"')}
       ${num('cooldownMinutes', g.cooldownMinutes, 'Cooldown between sessions (min)', 'min="0"')}
@@ -114,6 +117,7 @@ export async function render(main, ctx) {
       requireKoreanReviews: v('requireKoreanReviews').checked, requireKoreanNewCards: v('requireKoreanNewCards').checked,
       dailyCapWeekday: n('dailyCapWeekday'), dailyCapWeekend: n('dailyCapWeekend'), cooldownMinutes: n('cooldownMinutes'),
       setEveryMinutes: n('setEveryMinutes'), setsRequired: v('setsRequired').checked, setMenu: toStored(parseSetMenu(v('setMenu').value)),
+      dinnerMinutes: n('dinnerMinutes'), dinnerFrom: n('dinnerFrom'), dinnerTo: Math.max(n('dinnerTo'), n('dinnerFrom') + 1),
       sessionChoices: choices.length ? choices : g.sessionChoices, overrideMaxPerDay: n('overrideMaxPerDay'), overrideWaitSeconds: n('overrideWaitSeconds'),
     };
     const { patch, delayed } = gamingChange(s, gaming, ctx.today(), ctx.tomorrow());

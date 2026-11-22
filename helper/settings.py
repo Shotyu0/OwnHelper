@@ -22,6 +22,7 @@ DEFAULTS = {
         # 0 = no limit (session choices, daily caps, set interval).
         "sessionChoices": [0, 30, 60, 90, 120], "dailyCapWeekday": 0, "dailyCapWeekend": 0, "cooldownMinutes": 0,
         "setEveryMinutes": 30, "setsRequired": True, "setMinSeconds": 30, "setMenu": [],
+        "dinnerMinutes": 45, "dinnerFrom": 18, "dinnerTo": 21,
         "warnAtMinutes": [10, 2], "graceSeconds": 60,
         "overrideWaitSeconds": 60, "overrideMinReasonChars": 25, "overrideMaxPerDay": 1, "overrideExtendMinutes": 15,
     },

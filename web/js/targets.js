@@ -11,6 +11,7 @@ export const SOURCES = {
   paluch2022: ['Paluch et al. 2022, Lancet Public Health — steps and mortality, by age', 'https://doi.org/10.1016/S2468-2667(21)00302-9'],
   steps10k: ['Schneider et al. 2006 — a 10,000-step goal in overweight adults (adherence predicted weight loss)', 'https://pubmed.ncbi.nlm.nih.gov/17152246/'],
   duran2023: ['Duran et al. 2023, Med Sci Sports Exerc — walking breaks from sitting, dose-response', 'https://doi.org/10.1249/MSS.0000000000003109'],
+  buffey2022: ['Buffey et al. 2022, Sports Medicine — light walking breaks after meals lower the blood-sugar and insulin rise', 'https://pubmed.ncbi.nlm.nih.gov/35147898/'],
   vilpa2022: ['Stamatakis et al. 2022, Nature Medicine — 1–2 min bursts of vigorous activity in daily life', 'https://doi.org/10.1038/s41591-022-02100-x'],
   minDose2024: ['Sports Medicine 2024 — minimal-dose strength training, including "exercise snacks"', 'https://pubmed.ncbi.nlm.nih.gov/38509414/'],
   daily2022: ['Yoshida et al. 2022 — a few contractions daily beat a larger dose once a week', 'https://pubmed.ncbi.nlm.nih.gov/35908200/'],

@@ -170,6 +170,47 @@ def test_sets_are_due_every_30_min_of_play_across_sessions():
     assert r.status()["sets"] is None
 
 
+SAT_6PM = datetime(2026, 11, 21, 18, 30).timestamp() * 1000
+
+
+def test_dinner_break_pauses_the_set_clock_once_a_day_in_the_evening():
+    clock = [SAT_NOON]
+    store, r = make(clock, **open_gate())
+    assert not r.dinner()["canStart"]
+    with pytest.raises(RuleError, match="between 6 PM and 9 PM"):
+        r.start_dinner()
+    clock[0] = SAT_6PM
+    r.start_session(0, "dishes")
+    clock[0] += 25 * MIN                                    # set due in 5 min, then dinner arrives
+    assert r.status()["dinner"]["canStart"]
+    doc = r.start_dinner("pc")
+    assert store.get("daily", "2026-11-21")["dinner"] == doc and doc["end"] == clock[0] + 45 * MIN
+    st = r.status()
+    assert st["dinner"]["active"] and not st["dinner"]["canStart"]
+    assert st["sets"]["dueAt"] == doc["end"] + 5 * MIN      # the remaining 5 min of play start after dinner
+    clock[0] += 30 * MIN                                    # eating and playing: the clock doesn't move
+    assert r.status()["sets"]["dueAt"] == doc["end"] + 5 * MIN
+    r.end_dinner()                                          # done early
+    st = r.status()
+    assert not st["dinner"]["active"] and st["sets"]["dueAt"] == clock[0] + 5 * MIN
+    with pytest.raises(RuleError, match="today's dinner break"):
+        r.start_dinner()                                    # once a day
+    r.settings["gaming"]["dinnerMinutes"] = 0
+    assert not r.dinner()["canStart"]
+
+
+def test_a_set_that_comes_due_while_eating_waits_until_after_dinner():
+    clock = [SAT_6PM]
+    store, r = make(clock, **open_gate())
+    r.start_session(0, "dishes")
+    clock[0] += 32 * MIN                                    # already 2 min overdue
+    doc = r.start_dinner()
+    assert r.status()["sets"]["dueAt"] == doc["end"]        # postponed to the end of dinner, not skipped
+    clock[0] = doc["end"] + 1
+    st = r.status()
+    assert not st["dinner"]["active"] and st["sets"]["dueAt"] < clock[0]
+
+
 def test_korean_quota_comes_from_the_web_apps_daily_plan():
     clock = [SAT_NOON]
     store, r = make(clock)

@@ -250,3 +250,38 @@ def test_gate_updates_when_korean_progress_changes(env):
     assert not g.dirty
     store.update("daily", "2026-11-21", {"reviews": 1})       # an answer in the web app: re-check now
     assert g.dirty
+
+
+def test_dinner_break_holds_the_set_until_after_dinner(env):
+    make, running, calls, wall, clock, store, rules = env
+    clock[0] = datetime(2026, 11, 21, 18, 30).timestamp() * 1000
+    g = make()
+    rules.start_session(0, "dishes")
+    running.append(GAME)
+    g._step()
+    clock[0] += 30 * MIN + 5000                       # set overdue: the prompt opens
+    g._step()
+    assert calls["break"] == [True]
+    g.hotkeys.put("dinner")                           # Ctrl+Alt+D: food's here
+    g._step()
+    assert g.break_win is None and store.get("daily", "2026-11-21")["dinner"]["src"] == "pc"
+    assert g.st["dinner"]["active"] and g.st["sets"]["dueAt"] == store.get("daily", "2026-11-21")["dinner"]["end"]
+    wall["t"] += 61
+    clock[0] += 20 * MIN                              # eating and playing: no prompt, nothing closed
+    g._step()
+    assert calls["break"] == [True] and not calls["close"] and not calls["kill"]
+    g.hotkeys.put("dinner")                           # done eating: the postponed set is due now
+    g._step()
+    assert not g.st["dinner"]["active"] and calls["break"] == [True, True]
+
+
+def test_no_desk_nudges_while_eating(env):
+    make, running, calls, wall, clock, store, rules = env
+    clock[0] = datetime(2026, 11, 21, 18, 30).timestamp() * 1000
+    g = make()
+    g._step()
+    rules.start_dinner("web")                         # from the phone, eating at the desk
+    g._step()
+    wall["t"] += 40 * 60
+    g._step()
+    assert not calls["nudge"]

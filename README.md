@@ -84,6 +84,10 @@ then Right Alt toggles 한/A. On Android, add Korean in Gboard / Samsung Keyboar
    (e.g. 6 push-ups + 15 squats). Warnings come at 10 and 2 minutes, so you can do it between matches. If it's
    overdue, you get 60 s to save, then the game is closed until the set is logged (on the PC prompt or the
    phone). The watch checks each set afterwards for a heart-rate rise.
+   **Dinner break** (6–9 PM, once a day): no sets while you eat. Start it from the session dialog ("I'm eating
+   dinner"), the set prompts ("Eating dinner"), **Ctrl+Alt+D**, or the Gaming page. Sets wait 45 min (Ctrl+Alt+D
+   again or "Done eating" ends it early), play during dinner doesn't count, and a set that comes due is moved to
+   right after dinner, not skipped.
 5. **At the desk**: after 30 minutes at the PC, a small nudge to get up and walk for 3–5 minutes. It clears
    itself once the PC sees you've been away for 3 minutes. Not shown while gaming. With a treadmill under the
    desk (Settings), it asks you to walk while you work instead. "Walking now" (or **Ctrl+Alt+W**, or the button on

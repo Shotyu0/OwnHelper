@@ -1,4 +1,4 @@
-import { addDays, parseDay, calendarDay, fmtDateTime, fmtDuration } from '../time.js';
+import { addDays, parseDay, calendarDay, fmtDateTime, fmtDuration, fmtClock } from '../time.js';
 import { counts } from '../korean.js';
 import { scheduled, streak, consistency, workoutStatus, watchCounts, syncSetPlan, setText, dayLabel } from '../workout.js';
 import { summarize } from '../activity.js';
@@ -83,6 +83,7 @@ export async function render(main, ctx) {
   const cap = g?.cap || null;
   const sets = g?.sets;
   const mins = t => Math.max(0, Math.round((t - ctx.now()) / 60e3));
+  const eating = g?.dinner?.start <= ctx.now() && ctx.now() < g?.dinner?.end;
 
   main.innerHTML = `
   <div class="spread"><h1>${parseDay(today).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</h1>
@@ -121,6 +122,7 @@ export async function render(main, ctx) {
       ${g?.session ? (g.session.plannedEnd ? `<div class="big">${mins(g.session.plannedEnd)}m</div>
           <div class="muted small">left · then: ${esc(g.session.nextAction)}</div>`
           : `<div class="big">${Math.round(g.used || 0)}<span class="muted unit"> min today</span></div><div class="muted small">open session · then: ${esc(g.session.nextAction)}</div>`)
+          + (eating ? `<p class="small">Dinner break: sets wait until <b>${fmtClock(g.dinner.end)}</b></p>` : '')
           + (sets?.dueAt ? `<p class="small">Next set ${sets.dueAt > ctx.now() ? `in <b>${mins(sets.dueAt)} min</b>` : '<b>now</b>'}: ${esc(setText(sets.next))}</p>` : '')
         : `<div class="big">${Math.round(g?.used || byDay[today]?.gameMinutes || 0)}<span class="muted unit"> ${cap ? `/ ${cap} ` : ''}min</span></div>
           ${cap ? `<div class="bar"><div style="width:${Math.min(100, ((g?.used || 0) / cap) * 100)}%"></div></div>` : '<div class="muted small">no daily cap</div>'}

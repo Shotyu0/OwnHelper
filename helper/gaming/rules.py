@@ -8,6 +8,10 @@ Sets: every setEveryMinutes of play a short exercise set is due (push/pull + leg
 progression; the web app writes the menu to meta/setPlan). Logging one (PC prompt or phone) resets the clock.
 Play time is counted across sessions, so ending and restarting a session doesn't reset it.
 
+Dinner break (same as web/js/dinner.js): once a day, started between dinnerFrom and dinnerTo, it lasts
+dinnerMinutes (or until "done eating"). Play during it doesn't count toward the next set, and a set that comes
+due while you eat waits until the break ends: postponed, never skipped. Stored in daily/{day}.dinner {start, end}.
+
 Gate inputs (same as web/js/pages/today.js gateInputs):
   workouts/{id}.day/status, exercises (watch) .start/.dur, cards .due/.introducedAt/.newRank,
   daily/{calendar day}.steps (kept by the relay).
@@ -15,6 +19,7 @@ Gate inputs (same as web/js/pages/today.js gateInputs):
 from __future__ import annotations
 
 import time
+from datetime import datetime
 
 from ..settings import calendar_day, day_key, day_start, effective_gaming, is_weekend, weekday_key
 
@@ -34,6 +39,12 @@ class RuleError(Exception):
 
 def now_ms() -> float:
     return time.time() * 1000
+
+
+def hour_label(h) -> str:
+    """18 -> "6 PM" (web/js/dinner.js hourLabel)."""
+    h = int(h) % 24
+    return f"{h % 12 or 12} {'AM' if h < 12 else 'PM'}"
 
 
 class Rules:
@@ -130,8 +141,40 @@ class Rules:
         now = self.clock()
         return sum(self.session_minutes(s, now) for s in (self.sessions_today() if sessions is None else sessions))
 
+    # ------------------------------------------------------------------ dinner break
+    def dinner(self) -> dict:
+        """Today's dinner break and whether one can start now (see the module docstring)."""
+        g, now = self.g(), self.clock()
+        mins = int(g.get("dinnerMinutes") or 0)
+        frm, to = float(g.get("dinnerFrom", 18)), float(g.get("dinnerTo", 21))
+        d = (self.store.get("daily", self.today()) or {}).get("dinner") or {}
+        start, end = d.get("start"), d.get("end")
+        t = datetime.fromtimestamp(now / 1000)
+        in_window = frm <= t.hour + t.minute / 60 < to
+        return {"minutes": mins, "from": frm, "to": to, "start": start, "end": end, "src": d.get("src"),
+                "active": bool(start and end and start <= now < end),
+                "canStart": mins > 0 and not start and in_window}
+
+    def start_dinner(self, source: str = "pc") -> dict:
+        d = self.dinner()
+        if not d["canStart"]:
+            raise RuleError("Dinner break is on." if d["active"] else
+                            "Dinner breaks are off (Settings → Gaming)." if d["minutes"] <= 0 else
+                            "You've had today's dinner break." if d["start"] else
+                            f"Dinner breaks start between {hour_label(d['from'])} and {hour_label(d['to'])}.")
+        now, today = self.clock(), self.today()
+        doc = {"start": now, "end": now + d["minutes"] * MIN, "src": source}
+        self.store.update("daily", today, {"day": today, "dinner": doc})
+        return doc
+
+    def end_dinner(self) -> None:
+        """Done eating early: the set clock runs again from now."""
+        d = self.dinner()
+        if d["active"]:
+            self.store.update("daily", self.today(), {"dinner": {"start": d["start"], "end": self.clock(), "src": d["src"]}})
+
     # ------------------------------------------------------------------ sets during play
-    def set_status(self, sess: dict | None, sessions: list[dict] | None = None) -> dict | None:
+    def set_status(self, sess: dict | None, sessions: list[dict] | None = None, dinner: dict | None = None) -> dict | None:
         """When the next set is due. None when sets are switched off (setEveryMinutes 0)."""
         g, now = self.g(), self.clock()
         every = int(g.get("setEveryMinutes") or 0)
@@ -142,7 +185,22 @@ class Rules:
         last = max((x["at"] for x in done), default=None)
         since = max(last or start, start)
         sessions = self.sessions_today() if sessions is None else sessions
-        played = sum(self.session_minutes(s, now, since) for s in sessions)
+        dn = dinner or self.dinner()
+        eat0, eat1 = (dn["start"], min(dn["end"], now)) if dn["start"] and dn["end"] else (0, 0)
+
+        def played_in(s):                         # play since the last set, minus play while eating
+            a, b = max(s["startedAt"], since), self.session_end(s, now)
+            eating = max(0.0, min(b, eat1) - max(a, eat0))
+            return max(0.0, b - a - eating) / MIN
+
+        played = sum(played_in(s) for s in sessions)
+        left = every - played
+        if not sess:
+            due = None
+        elif dn["active"]:
+            due = dn["end"] + max(0.0, left) * MIN    # a set that came due while eating waits until after
+        else:
+            due = now + left * MIN
         # Stored as [{items: [...]}, ...] (Firestore has no arrays inside arrays); see web/js/workout.js toStored.
         stored = (self.store.get("meta", "setPlan") or {}).get("variants") or []
         plan = [v.get("items") if isinstance(v, dict) else v for v in stored]
@@ -150,7 +208,7 @@ class Rules:
         return {
             "every": every, "required": bool(g.get("setsRequired")), "minSeconds": int(g.get("setMinSeconds", 30)),
             "today": len(done), "lastAt": last, "playedSince": round(played, 1),
-            "dueAt": now + (every - played) * MIN if sess else None,
+            "dueAt": due,
             "next": plan[len(done) % len(plan)],
         }
 
@@ -188,12 +246,13 @@ class Rules:
             if cap_left >= 5 and int(cap_left) not in choices and (not choices or cap_left < max(g["sessionChoices"])):
                 choices.append(int(cap_left))
             choices.sort()
+        dinner = self.dinner()
         return {
             "gate": items, "gateOk": all(i["ok"] for i in items), "cap": cap, "used": used, "capLeft": cap_left,
             "cooldownLeft": cooldown_left, "session": sess, "blockers": blockers,
             "canStart": not blockers and sess is None, "choices": choices,
             "overridesLeft": max(0, g["overrideMaxPerDay"] - self.overrides_today()),
-            "sets": self.set_status(sess, sessions),
+            "sets": self.set_status(sess, sessions, dinner), "dinner": dinner,
         }
 
     def _check_override(self, reason: str) -> None:

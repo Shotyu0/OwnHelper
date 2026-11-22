@@ -22,6 +22,9 @@ export const DEFAULTS = {
     // A short set (push/pull + legs) every setEveryMinutes of play; setsRequired closes the game when one is overdue.
     // setMenu: your own sets ([[{name, reps, note}], ...], alternating); empty = sized from your home-workout levels.
     setEveryMinutes: 30, setsRequired: true, setMinSeconds: 30, setMenu: [],
+    // Dinner break (web/js/dinner.js): once a day, starting between dinnerFrom and dinnerTo (local hours), sets wait
+    // dinnerMinutes while you eat, and play during it doesn't count toward the next set. 0 = off.
+    dinnerMinutes: 45, dinnerFrom: 18, dinnerTo: 21,
     warnAtMinutes: [10, 2], graceSeconds: 60,
     overrideWaitSeconds: 60, overrideMinReasonChars: 25, overrideMaxPerDay: 1, overrideExtendMinutes: 15,
   },
@@ -43,9 +46,9 @@ export function effectiveGaming(settings, today) {
 }
 
 const noLimit = x => (x > 0 ? x : Infinity);   // 0 means "no limit"
-const MORE_IS_LOOSER = ['graceSeconds', 'overrideMaxPerDay', 'overrideExtendMinutes'];
+const MORE_IS_LOOSER = ['graceSeconds', 'overrideMaxPerDay', 'overrideExtendMinutes', 'dinnerMinutes', 'dinnerTo'];
 const LIMITS = ['dailyCapWeekday', 'dailyCapWeekend', 'setEveryMinutes'];
-const LESS_IS_LOOSER = ['cooldownMinutes', 'overrideWaitSeconds', 'overrideMinReasonChars', 'setMinSeconds'];
+const LESS_IS_LOOSER = ['cooldownMinutes', 'overrideWaitSeconds', 'overrideMinReasonChars', 'setMinSeconds', 'dinnerFrom'];
 const OFF_IS_LOOSER = ['requireWorkout', 'requireKoreanReviews', 'requireKoreanNewCards', 'setsRequired'];
 
 export function isLooser(old, next) {

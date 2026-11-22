@@ -6,6 +6,8 @@
                               then force-closed 15 s later
   set due (every 30 min    -> warnings at 10 and 2 minutes, then a "set time" prompt; if the set isn't logged
    of play)                   within 60 s the game is closed, and stays closed until it is
+  dinner (6-9 PM, once     -> "Eating dinner" (session dialog, set prompts, Ctrl+Alt+D, or the phone): sets wait
+   a day)                     while you eat; play during it doesn't count. Ctrl+Alt+D again when you're done
   override                 -> 60 s wait + written reason; logged on the dashboard; limited per day
   at the desk 30 min       -> a small nudge to get up and walk for a few minutes (not while gaming); with a
                               treadmill desk: walk while working. "Walking now" (or Ctrl+Alt+W) logs a treadmill
@@ -73,18 +75,32 @@ WALK_IDLE_END_S = 10 * 60      # away from the PC this long during a walk: it en
 WALK_ASK_TIMEOUT_S = 5 * 60     # "still walking?" unanswered this long: ended when asked
 
 
+HOTKEYS = {1: ("W", "walk"), 2: ("D", "dinner")}
+
+
 def hotkey_thread(events: queue.Queue) -> None:
-    """Ctrl+Alt+W anywhere toggles a treadmill walk (Windows global hotkey on its own message loop)."""
+    """Global hotkeys (Windows, on their own message loop): Ctrl+Alt+W toggles a treadmill walk,
+    Ctrl+Alt+D the dinner break."""
     if sys.platform != "win32":
         return
     user32 = ctypes.windll.user32
-    if not user32.RegisterHotKey(None, 1, 0x2 | 0x1 | 0x4000, ord("W")):   # CONTROL | ALT | NOREPEAT
-        log.warning("Ctrl+Alt+W is already used by another app; start walks from the web app instead.")
+    ok = False
+    for hid, (key, what) in HOTKEYS.items():
+        if user32.RegisterHotKey(None, hid, 0x2 | 0x1 | 0x4000, ord(key)):   # CONTROL | ALT | NOREPEAT
+            ok = True
+        else:
+            log.warning("Ctrl+Alt+%s is already used by another app; use the web app for %s instead.", key, what)
+    if not ok:
         return
     msg = ctypes.wintypes.MSG()
     while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
-        if msg.message == 0x0312:   # WM_HOTKEY
-            events.put("walk")
+        if msg.message == 0x0312 and msg.wParam in HOTKEYS:   # WM_HOTKEY
+            events.put(HOTKEYS[msg.wParam][1])
+
+
+def clock_label(ms: float) -> str:
+    """Epoch ms -> "7:15 PM"."""
+    return time.strftime("%I:%M %p", time.localtime(ms / 1000)).lstrip("0")
 
 
 def plan_text(items) -> str:
@@ -201,9 +217,9 @@ class Guardian:
         self.walk = doc if doc and doc.get("start") else None
 
     def _on_daily(self, doc):
-        # Korean answers and steps change the gate. Only those fields: the guardian writes this doc too
-        # (gameMinutes, nudge counts), and reacting to its own writes would loop.
-        key = tuple((doc or {}).get(k) for k in ("reviews", "newCards", "steps"))
+        # Korean answers and steps change the gate, a dinner break the set clock. Only those fields: the guardian
+        # writes this doc too (gameMinutes, nudge counts), and reacting to its own writes would loop.
+        key = tuple((doc or {}).get(k) for k in ("reviews", "newCards", "steps", "dinner"))
         if key != self.daily_key:
             self.daily_key = key
             self.dirty = True
@@ -280,8 +296,10 @@ class Guardian:
             self.rules.handle_request(req)
             self.dirty = True
         while not self.hotkeys.empty():
-            self.hotkeys.get_nowait()
-            self._toggle_walk()
+            if self.hotkeys.get_nowait() == "dinner":
+                self._toggle_dinner()
+            else:
+                self._toggle_walk()
         try:
             self._watch_gate()
         except Exception:
@@ -294,7 +312,7 @@ class Guardian:
         pids = {g.pid for g in games}
         try:
             sess = self._session()
-            self._move_check(in_session=sess is not None)
+            self._move_check(in_session=sess is not None or self._eating())
             if sess:
                 self._in_session(sess, games)
                 return
@@ -380,7 +398,7 @@ class Guardian:
                 if games and left > w * 60 - 30:
                     self._toast(f"Set due in {w} min: {plan_text(sets.get('next'))}. Do it between matches.",
                                 WARN if w > 2 else BAD, seconds=15,
-                                action=("Do it now", lambda: self._open_break(sets, due=False)))
+                                action=[("Do it now", lambda: self._open_break(sets, due=False))] + self._dinner_action())
             return
         if not sets.get("required"):
             if games and time.time() - self.last_set_reminder > 300:
@@ -411,6 +429,38 @@ class Guardian:
         self._destroy("break_win")
         self.break_due = False
         self.break_deadline = self.break_kill_at = None
+
+    # ------------------------------------------------------------------ dinner break (rules.py Rules.dinner)
+    def _dinner(self) -> dict:
+        return (self.st or {}).get("dinner") or {}
+
+    def _eating(self) -> bool:
+        d = self._dinner()
+        return bool(d.get("start") and d.get("end") and d["start"] <= self.clock() < d["end"])
+
+    def _dinner_action(self) -> list:
+        """An "Eating dinner" button for set prompts, while a dinner break can start."""
+        return [("Eating dinner", self._start_dinner)] if self._dinner().get("canStart") else []
+
+    def _start_dinner(self) -> bool:
+        try:
+            doc = self.rules.start_dinner("pc")
+        except RuleError as e:
+            self._toast(str(e), WARN, seconds=6)
+            return False
+        self.dirty = True
+        self._clear_break()        # a set prompt that's open waits until after dinner
+        self._toast(f"Enjoy your dinner. Sets wait until {clock_label(doc['end'])}, and playing while you eat doesn't "
+                    "count toward the next one. Done early? Ctrl+Alt+D.", GOOD, seconds=10)
+        return True
+
+    def _toggle_dinner(self) -> None:
+        if self.rules.dinner()["active"]:
+            self.rules.end_dinner()
+            self.dirty = True
+            self._toast("Dinner's done: the set clock is running again.", GOOD, seconds=5)
+        else:
+            self._start_dinner()
 
     # ------------------------------------------------------------------ get-up nudges while working
     def _move_check(self, in_session: bool) -> None:
@@ -666,19 +716,19 @@ class Guardian:
         inner.pack(padx=(4, 0))
         tk.Label(inner, text=text, bg=CARD, fg=FG, font=(FONT, 12, "bold"), wraplength=360,
                  justify="left").pack(anchor="w")
-        if action:
-            label, fn = action
-
-            def run():
+        actions = action if isinstance(action, list) else [action] if action else []
+        if actions:
+            row = tk.Frame(inner, bg=CARD)
+            row.pack(anchor="w", pady=(8, 0))
+        for i, (label, fn) in enumerate(actions):
+            def run(fn=fn):
                 try:
                     t.destroy()
                 except tk.TclError:
                     pass
                 fn()
 
-            row = tk.Frame(inner, bg=CARD)
-            row.pack(anchor="w", pady=(8, 0))
-            self._button(row, label, run, primary=True)
+            self._button(row, label, run, primary=i == 0)
         t.update_idletasks()
         t.geometry(f"+{t.winfo_screenwidth() - t.winfo_reqwidth() - 24}+24")
         _no_activate(t)
@@ -725,6 +775,9 @@ class Guardian:
         if st.get("sets"):
             self._label(box, f"A short set is due every {st['sets']['every']} min of play "
                              f"(next: {plan_text(st['sets'].get('next'))}).", 10, MUTED)
+        dinner = st.get("dinner") or {}
+        if dinner.get("active"):
+            self._label(box, f"Dinner break: sets wait until {clock_label(dinner['end'])}.", 10, GOOD)
         if st["cooldownLeft"] > 0:
             self._label(box, f"Cooldown: {st['cooldownLeft']:.0f} min left", 10, WARN)
 
@@ -745,11 +798,16 @@ class Guardian:
         if prefill and prefill[0]:
             nxt.insert(0, prefill[0])
         self._label(w, "e.g. \"go to bed\", \"make dinner\", \"30 min of Korean reading\"", 9, MUTED)
+        eating = tk.BooleanVar(value=bool(prefill and len(prefill) > 2 and prefill[2]))
+        if dinner.get("canStart") and st.get("sets"):
+            tk.Checkbutton(w, text=f"I'm eating dinner while I play (sets wait {dinner['minutes']} min)", variable=eating,
+                           bg=BG, fg=FG, selectcolor=CARD, activebackground=BG, activeforeground=FG,
+                           font=(FONT, 10)).pack(anchor="w", pady=(4, 0))
         err = self._label(w, "", 10, BAD)
 
         def start(reason=None):
             try:
-                mins, then = minutes.get(), nxt.get().strip()
+                mins, then, eat = minutes.get(), nxt.get().strip(), eating.get()
             except tk.TclError:  # dialog was closed while the override timer ran
                 return
             try:
@@ -762,7 +820,8 @@ class Guardian:
                 return
             self.dirty = True
             self._destroy("session_dlg")
-            self._toast(f"Session started ({minutes_label(mins).lower()}). Then: {then}", GOOD)
+            if not (eat and self._start_dinner()):
+                self._toast(f"Session started ({minutes_label(mins).lower()}). Then: {then}", GOOD)
             if not already_running:
                 detect.relaunch(game.appid)
 
@@ -795,7 +854,7 @@ class Guardian:
             cur = tuple((self.st or {}).get("blockers") or ())
             if cur != shown:
                 try:
-                    keep = (nxt.get(), minutes.get())
+                    keep = (nxt.get(), minutes.get(), eating.get())
                 except tk.TclError:
                     return
                 self._destroy("session_dlg")
@@ -896,6 +955,8 @@ class Guardian:
 
         ok = self._button(btns, "Done ✓", done, primary=True)
         ok.config(state="disabled")
+        for label, fn in self._dinner_action():
+            self._button(btns, label, fn)
         if due:
             self._button(btns, "Stop playing", stop)
         else:

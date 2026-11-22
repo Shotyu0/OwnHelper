@@ -6,6 +6,7 @@ import { setPlan, setText } from '../../web/js/workout.js';
 import { verifySet } from '../../web/js/activity.js';
 import { withDefaults, isLooser, DEFAULTS } from '../../web/js/settings.js';
 import { addDays } from '../../web/js/time.js';
+import { dinnerState, startDinner, endDinner, hourLabel } from '../../web/js/dinner.js';
 
 const MON = '2026-11-23';   // a Monday
 
@@ -93,6 +94,29 @@ test('no daily cap and sets: dropping or easing them waits until tomorrow', () =
   assert.ok(!isLooser(g, { ...g, setEveryMinutes: 20 }));
   assert.ok(isLooser(g, { ...g, setsRequired: false }));
   assert.ok(isLooser({ ...g, sessionChoices: [30, 60] }, g));        // allowing "no limit" sessions
+  assert.ok(isLooser(g, { ...g, dinnerMinutes: 60 }));               // longer dinner break
+  assert.ok(!isLooser(g, { ...g, dinnerMinutes: 0 }));               // switching it off is tighter
+  assert.ok(isLooser(g, { ...g, dinnerFrom: 17 }) && isLooser(g, { ...g, dinnerTo: 22 }));   // wider window
+});
+
+test('dinner break: once a day, 6–9 PM, active until it ends', async () => {
+  const g = DEFAULTS.gaming, at = (h, m = 0) => new Date(2026, 10, 21, h, m).getTime();
+  assert.ok(!dinnerState(g, null, at(17, 59)).canStart && !dinnerState(g, null, at(21)).canStart);
+  const s = dinnerState(g, {}, at(18, 30));
+  assert.ok(s.canStart && !s.active && s.minutes === 45);
+  const writes = [];
+  const store = { update: async (col, id, patch) => writes.push([col, id, patch]) };
+  const d = await startDinner(store, '2026-11-21', s, at(18, 30));
+  assert.deepEqual(writes[0], ['daily', '2026-11-21', { day: '2026-11-21', dinner: { start: at(18, 30), end: at(19, 15), src: 'phone' } }]);
+  const on = dinnerState(g, { dinner: d }, at(19));
+  assert.ok(on.active && !on.canStart);
+  await endDinner(store, '2026-11-21', on, at(19, 5));
+  assert.equal(writes[1][2].dinner.end, at(19, 5));
+  assert.ok(!dinnerState(g, { dinner: { ...d, end: at(19, 5) } }, at(19, 10)).active);
+  assert.ok(!dinnerState(g, { dinner: d }, at(20)).canStart);         // once a day
+  assert.ok(!dinnerState({ ...g, dinnerMinutes: 0 }, {}, at(19)).canStart);
+  assert.equal(hourLabel(18), '6 PM');
+  assert.equal(hourLabel(0), '12 AM');
 });
 
 test('30-minute lunch sessions: supersets, upper/lower alternate, progress shared with full sessions', async () => {
