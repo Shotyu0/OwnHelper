@@ -38,6 +38,7 @@ from ..cloud import Increment
 from ..gaming.rules import Rules, RuleError, now_ms
 from ..settings import day_start, with_defaults
 from . import detect
+from .inputwatch import InputWatch, fmt_idle
 
 TICK_MS = 2500
 CLOSE_GRACE_S = 15
@@ -106,6 +107,11 @@ def clock_label(ms: float) -> str:
     return time.strftime("%I:%M %p", time.localtime(ms / 1000)).lstrip("0")
 
 
+def hms(ms: float) -> str:
+    """Epoch ms -> "10:27:05" (logs)."""
+    return time.strftime("%H:%M:%S", time.localtime(ms / 1000))
+
+
 def plan_text(items) -> str:
     """Same wording as web/js/workout.js setText."""
     return " + ".join((f"{i['reps']} × " if i.get("reps") else "") + str(i.get("name")) + (f" ({i['note']})" if i.get("note") else "")
@@ -164,6 +170,8 @@ class Guardian:
         self.break_opened = 0.0
         self.away_sid: str | None = None           # session marked away (AFK)
         self.break_kill_at: float | None = None
+        self.break_story = ""                      # why the countdown started, for the set_missed event
+        self.input_watch = InputWatch()            # logs which device ended an idle stretch (helper.log)
         self.last_set_reminder = 0.0
         # get-up nudges while working
         self.nudge_win: tk.Toplevel | None = None
@@ -282,6 +290,7 @@ class Guardian:
     # ------------------------------------------------------------------ main loop
     def run(self) -> None:
         threading.Thread(target=hotkey_thread, args=(self.hotkeys,), daemon=True, name="hotkey").start()
+        self.input_watch.start()
         self.root.after(500, self._tick)
         self.root.after(800, lambda: self._toast("Personal Helper is on — games run inside sessions.", GOOD, seconds=5))
         self.root.mainloop()
@@ -317,6 +326,10 @@ class Guardian:
         pids = {g.pid for g in games}
         try:
             sess = self._session()
+            idle = idle_seconds()
+            self.input_watch.log_after = 20 if sess else 60
+            if idle >= PRESENT_S:
+                self.input_watch.arm(idle)
             self._move_check(in_session=sess is not None or self._eating())
             if sess:
                 self._in_session(sess, games)
@@ -396,10 +409,15 @@ class Guardian:
                 self.rules.mark_away(sess["id"], now - idle * 1000)
                 self.away_sid = sess["id"]
                 self.dirty = True
+                log.info("AFK: no keyboard/mouse since %s (%s ago); set clock paused",
+                         hms(now - idle * 1000), fmt_idle(idle))
         elif away:
             self.rules.mark_back(sess["id"], now - idle * 1000)
             self.away_sid = None
             self.dirty = True
+            since = sess.get("awaySince")
+            log.info("Back from AFK at %s%s", hms(now - idle * 1000),
+                     f" (away since {hms(since)})" if since else "")
 
     # ------------------------------------------------------------------ sets during play
     def _check_sets(self, sess, games, now) -> None:
@@ -438,8 +456,14 @@ class Guardian:
             return
         if self.break_deadline is None:
             # Opened while you were away from the PC: the save-your-game countdown starts at your first input after.
-            if idle_seconds() < t - self.break_opened:
-                self.break_deadline = t + int(self.cfg["graceSeconds"])
+            idle = idle_seconds()
+            if idle < t - self.break_opened:
+                grace = int(self.cfg["graceSeconds"])
+                self.break_deadline = t + grace
+                back = (t - idle) * 1000
+                self.break_story += f"; input at {hms(back)} started the {grace}s countdown"
+                log.info("Set prompt: input at %s, %ds countdown started", hms(back), grace)
+                _beep()                              # you're back: the prompt may be behind the game
             return
         if not games or t < self.break_deadline:
             return
@@ -447,7 +471,12 @@ class Guardian:
         if self.break_kill_at is None:
             detect.close_windows(pids)
             self.break_kill_at = t + CLOSE_GRACE_S
-            self.rules.log_event("set_missed", ", ".join(sorted({g.title for g in games})))
+            seen = self.input_watch.last
+            if seen and seen["at"] >= self.break_opened:
+                self.break_story += f" ({seen['text']})"
+            titles = ", ".join(sorted({g.title for g in games}))
+            log.info("Set not logged in time: closing %s. %s", titles, self.break_story)
+            self.rules.log_event("set_missed", f"{titles}: {self.break_story}" if self.break_story else titles)
         elif t >= self.break_kill_at and detect.kill(pids):
             self._note_kill_failure(games)
 
@@ -957,7 +986,13 @@ class Guardian:
         self.break_due = due
         self.break_opened = time.time()
         # Away from the PC when it opens? Then the countdown waits for you (see _check_sets).
-        self.break_deadline = time.time() + grace if due and idle_seconds() < PRESENT_S else None
+        idle = idle_seconds()
+        self.break_deadline = time.time() + grace if due and idle < PRESENT_S else None
+        if due:
+            self.break_story = (f"prompt at {hms(self.clock())}, last input {fmt_idle(idle)} before"
+                                + (f", {grace}s countdown started" if self.break_deadline else ""))
+            log.info("Set prompt opened (set due), last input %s before: %s", fmt_idle(idle),
+                     "countdown started" if self.break_deadline else "countdown waits for input")
         self.break_kill_at = None
         w.protocol("WM_DELETE_WINDOW", (lambda: None) if due else (lambda: self._clear_break()))
         self._label(w, "Set time" if due else "Your next set", 20, bold=True)

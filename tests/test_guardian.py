@@ -39,6 +39,7 @@ def env(monkeypatch):
     wall = {"t": 1_000_000.0, "idle": 0.0}
     monkeypatch.setattr(gapp.time, "time", lambda: wall["t"])
     monkeypatch.setattr(gapp, "idle_seconds", lambda: wall["idle"])
+    monkeypatch.setattr(gapp, "_beep", lambda: None)
     clock = [NOON]
     store = MemoryStore()
     store.set("meta", "settings", {"gaming": {"requireWorkout": False, "requireKoreanReviews": False,
@@ -325,6 +326,9 @@ def test_set_prompt_countdown_starts_when_you_come_back(env):
     wall["t"] += 61
     g._step()
     assert calls["close"] == [{4242}]
+    back = gapp.hms((wall["t"] - 61 - 3) * 1000)
+    missed = [e for e in store.query("events") if e["kind"] == "set_missed"]
+    assert f"input at {back} started the 60s countdown" in missed[0]["detail"]    # the phone shows why it closed
 
 
 def test_no_desk_nudges_while_eating(env):
