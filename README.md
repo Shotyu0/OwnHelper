@@ -94,6 +94,9 @@ then Right Alt toggles 한/A. On Android, add Korean in Gboard / Samsung Keyboar
    apart: AION 2 sends a fake mouse event every 50 s while it runs (to keep the PC awake), and a lone event like that,
    or a bumped mouse, doesn't count. Game controllers aren't seen by this check. `data/helper.log` records when you
    went away and came back, and why a set prompt closed a game.
+   **Treadmill walk**: walking already breaks up the sitting, so while a walk is running (Ctrl+Alt+W, or the Today
+   button) play doesn't count toward the next set and no set warnings come. The clock picks up after the walk, and a
+   set that was already due when you started walking still has to be done.
 5. **At the desk**: after 30 minutes at the PC, a small nudge to get up and walk for 3–5 minutes. It clears
    itself once the PC sees you've been away for 3 minutes. Not shown while gaming. With a treadmill under the
    desk (Settings), it asks you to walk while you work instead. "Walking now" (or **Ctrl+Alt+W**, or the button on

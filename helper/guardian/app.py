@@ -228,7 +228,10 @@ class Guardian:
         self.sit_reset = True    # a set means you got up
 
     def _on_walk(self, doc):
-        self.walk = doc if doc and doc.get("start") else None
+        walk = doc if doc and doc.get("start") else None
+        if (walk or {}).get("start") != (self.walk or {}).get("start"):
+            self.dirty = True                # walking pauses the set clock: refresh it now
+        self.walk = walk
 
     def _on_daily(self, doc):
         # Korean answers and steps change the gate, a dinner break the set clock. Only those fields: the guardian

@@ -35,19 +35,20 @@ def stop_walk(store, now: float, end: float | None = None, steps: int | None = N
         return None
     end = min(end if end is not None else now, w["start"] + MAX_WALK_MIN * 60000)
     minutes = max(0.0, (end - w["start"]) / 60000)
+    walk = None
+    if minutes >= 1:
+        est = not steps or steps <= 0
+        if est:
+            steps = round(minutes * cadence(store))
+        else:
+            c = steps / minutes
+            if 40 <= c <= 140:
+                store.set("meta", "walkStats", {"cadence": round(0.7 * cadence(store) + 0.3 * c)})
+        day = calendar_day(w["start"])
+        walks = dict((store.get("daily", day) or {}).get("walks") or {})
+        walk = {"s": w["start"], "e": end, "steps": int(round(steps)), "est": est, "src": w.get("src") or "pc"}
+        walks[str(int(w["start"]))] = walk
+        store.update("daily", day, {"day": day, "walks": walks})
+    # Cleared last, so the walk is always findable (the set clock pauses while you walk; gaming/rules.py).
     store.set("meta", "walk", {"start": None, "src": w.get("src")})
-    if minutes < 1:
-        return None
-    est = not steps or steps <= 0
-    if est:
-        steps = round(minutes * cadence(store))
-    else:
-        c = steps / minutes
-        if 40 <= c <= 140:
-            store.set("meta", "walkStats", {"cadence": round(0.7 * cadence(store) + 0.3 * c)})
-    day = calendar_day(w["start"])
-    walks = dict((store.get("daily", day) or {}).get("walks") or {})
-    walk = {"s": w["start"], "e": end, "steps": int(round(steps)), "est": est, "src": w.get("src") or "pc"}
-    walks[str(int(w["start"]))] = walk
-    store.update("daily", day, {"day": day, "walks": walks})
-    return {**walk, "minutes": minutes}
+    return {**walk, "minutes": minutes} if walk else None

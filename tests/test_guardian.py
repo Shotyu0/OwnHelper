@@ -399,3 +399,34 @@ def test_no_desk_nudges_while_eating(env):
     wall["t"] += 40 * 60
     g._step()
     assert not calls["nudge"]
+
+
+def test_no_set_warnings_during_a_treadmill_walk_but_an_owed_set_still_counts(env, monkeypatch):
+    from helper import walks
+    monkeypatch.setattr(gapp.Guardian, "_show_walk_bar", lambda self: setattr(self, "walk_bar", object()))
+    make, running, calls, wall, clock, store, rules = env
+    g = make()
+    rules.start_session(0, "sleep")
+    running.append(GAME)
+    g._step()
+
+    def later(sec):
+        wall["t"] += sec
+        clock[0] += sec * 1000
+        g._step()
+
+    later(15 * 60)
+    walks.start_walk(store, clock[0])                 # Ctrl+Alt+W with the game open
+    later(3)
+    assert g.st["sets"]["walkingSince"] and g.st["sets"]["dueAt"] is None
+    later(40 * 60)
+    later(5)
+    assert not any("Set due" in t for t in calls["toast"]) and not calls["break"]
+    walks.stop_walk(store, clock[0])
+    later(3)
+    assert g.st["sets"]["dueAt"] == pytest.approx(clock[0] + 15 * MIN, abs=5000)   # 15 min of play left
+    later(15 * 60 + 30)                               # due: a walk started now doesn't cancel it
+    assert calls["break"] == [True]
+    walks.start_walk(store, clock[0])
+    later(3)
+    assert g.break_win is not None and g.st["sets"]["dueAt"] <= clock[0]

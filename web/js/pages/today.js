@@ -123,7 +123,8 @@ export async function render(main, ctx) {
           <div class="muted small">left · then: ${esc(g.session.nextAction)}</div>`
           : `<div class="big">${Math.round(g.used || 0)}<span class="muted unit"> min today</span></div><div class="muted small">open session · then: ${esc(g.session.nextAction)}</div>`)
           + (eating ? `<p class="small">Dinner break: sets wait until <b>${fmtClock(g.dinner.end)}</b></p>` : '')
-          + (sets?.dueAt ? `<p class="small">Next set ${sets.dueAt > ctx.now() ? `in <b>${mins(sets.dueAt)} min</b>` : '<b>now</b>'}${sets.awaySince ? ' of play (paused: you\'re away from the PC)' : ''}: ${esc(setText(sets.next))}</p>` : '')
+          + (sets?.dueAt ? `<p class="small">Next set ${sets.dueAt > ctx.now() ? `in <b>${mins(sets.dueAt)} min</b>` : '<b>now</b>'}${sets.awaySince ? ' of play (paused: you\'re away from the PC)' : ''}: ${esc(setText(sets.next))}</p>`
+            : sets?.walkingSince ? `<p class="small">Treadmill walk: sets wait. Next set after <b>${Math.max(0, Math.ceil(sets.every - sets.playedSince))} min</b> more play: ${esc(setText(sets.next))}</p>` : '')
         : `<div class="big">${Math.round(g?.used || byDay[today]?.gameMinutes || 0)}<span class="muted unit"> ${cap ? `/ ${cap} ` : ''}min</span></div>
           ${cap ? `<div class="bar"><div style="width:${Math.min(100, ((g?.used || 0) / cap) * 100)}%"></div></div>` : '<div class="muted small">no daily cap</div>'}
           ${sets ? `<p class="small">${sets.today} set${sets.today === 1 ? '' : 's'} today · one every ${sets.every} min of play</p>` : ''}

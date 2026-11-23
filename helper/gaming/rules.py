@@ -16,6 +16,10 @@ Away from the PC (AFK): after afkMinutes with no keyboard or mouse input, the gu
 (sessions/{id}.awaySince, backdated to your last input; finished periods go to .away [{s, e}]). Time away doesn't
 count toward the next set, and an overdue set only starts its close-the-game countdown once you're back.
 
+Treadmill walk (helper/walks.py): walking already breaks up the sitting, so play while you walk doesn't count
+toward the next set and no set comes due or warns during the walk (dueAt None). A set that was already due when
+you started walking is still due: walking pauses the clock, it doesn't cancel a set you owe.
+
 Gate inputs (same as web/js/pages/today.js gateInputs):
   workouts/{id}.day/status, exercises (watch) .start/.dur, cards .due/.introducedAt/.newRank,
   daily/{calendar day}.steps (kept by the relay).
@@ -25,6 +29,7 @@ from __future__ import annotations
 import time
 from datetime import datetime
 
+from .. import walks
 from ..settings import calendar_day, day_key, day_start, effective_gaming, is_weekend, weekday_key
 
 LEARN_AHEAD_MS = 20 * 60 * 1000
@@ -188,6 +193,19 @@ class Rules:
         if d["active"]:
             self.store.update("daily", self.today(), {"dinner": {"start": d["start"], "end": self.clock(), "src": d["src"]}})
 
+    def walk_periods(self, since: float) -> tuple[list[tuple[float, float]], float | None]:
+        """Treadmill walks ending after `since` as (start, end), the one in progress up to now; and its start."""
+        now = self.clock()
+        out = [(w["s"], w["e"]) for d in {calendar_day(since), calendar_day(now)}
+               for w in ((self.store.get("daily", d) or {}).get("walks") or {}).values() if w.get("e", 0) > since]
+        cur = walks.open_walk(self.store)
+        start = cur["start"] if cur else None
+        if start and now < start + walks.MAX_WALK_MIN * MIN:   # a forgotten walk stops pausing after 4 h
+            out.append((start, now))
+        else:
+            start = None
+        return out, start
+
     # ------------------------------------------------------------------ sets during play
     def set_status(self, sess: dict | None, sessions: list[dict] | None = None, dinner: dict | None = None) -> dict | None:
         """When the next set is due. None when sets are switched off (setEveryMinutes 0)."""
@@ -202,12 +220,13 @@ class Rules:
         sessions = self.sessions_today() if sessions is None else sessions
         dn = dinner or self.dinner()
         eat0, eat1 = (dn["start"], min(dn["end"], now)) if dn["start"] and dn["end"] else (0, 0)
+        walked, walking = self.walk_periods(since)
 
-        def played_in(s):                         # play since the last set, minus eating and time away
+        def played_in(s):                         # play since the last set, minus eating, walking and time away
             a, b = max(s["startedAt"], since), self.session_end(s, now)
             if b <= a:
                 return 0.0
-            off = [(eat0, eat1)] + [(x["s"], x.get("e") or now) for x in s.get("away") or []]
+            off = [(eat0, eat1)] + walked + [(x["s"], x.get("e") or now) for x in s.get("away") or []]
             if s.get("awaySince"):
                 off.append((s["awaySince"], now))
             paused = sum(max(0.0, min(b, y) - max(a, x)) for x, y in merged(off))
@@ -219,6 +238,8 @@ class Rules:
             due = None
         elif dn["active"]:
             due = dn["end"] + max(0.0, left) * MIN    # a set that came due while eating waits until after
+        elif walking and left > 0:
+            due = None                                # paused while you walk; a set already owed stays due
         else:
             due = now + left * MIN
         # Stored as [{items: [...]}, ...] (Firestore has no arrays inside arrays); see web/js/workout.js toStored.
@@ -229,6 +250,7 @@ class Rules:
             "every": every, "required": bool(g.get("setsRequired")), "minSeconds": int(g.get("setMinSeconds", 30)),
             "today": len(done), "lastAt": last, "playedSince": round(played, 1),
             "awaySince": sess.get("awaySince") if sess else None,
+            "walkingSince": walking,
             "dueAt": due,
             "next": plan[len(done) % len(plan)],
         }

@@ -262,3 +262,44 @@ def test_lunch_gym_day_label():
     store, r = make(clock)
     r.settings["workout"]["schedule"]["mon"] = "gym30"
     assert r.gate()[0]["detail"] == "Today's lunch gym workout isn't logged yet"
+
+
+def test_a_treadmill_walk_pauses_the_set_clock():
+    from helper import walks
+    clock = [SAT_NOON]
+    store, r = make(clock, **open_gate())
+    r.start_session(0, "dishes")
+    clock[0] += 20 * MIN                                    # 10 min of play left, then you start walking
+    walks.start_walk(store, clock[0])
+    st = r.status()["sets"]
+    assert st["walkingSince"] == clock[0] and st["dueAt"] is None   # nothing comes due or warns mid-walk
+    clock[0] += 40 * MIN                                    # walking and playing for 40 min
+    st = r.status()["sets"]
+    assert st["dueAt"] is None and st["playedSince"] == 20
+    walks.stop_walk(store, clock[0])                        # stored in daily/{day}.walks; the clock picks up
+    st = r.status()["sets"]
+    assert st["walkingSince"] is None and st["dueAt"] == clock[0] + 10 * MIN
+
+
+def test_a_set_already_due_when_you_start_walking_is_still_due():
+    from helper import walks
+    clock = [SAT_NOON]
+    store, r = make(clock, **open_gate())
+    r.start_session(0, "dishes")
+    clock[0] += 31 * MIN                                    # 1 min overdue
+    walks.start_walk(store, clock[0])
+    clock[0] += 10 * MIN
+    st = r.status()["sets"]
+    assert st["walkingSince"] and st["dueAt"] == clock[0] - 1 * MIN   # walking doesn't cancel a set you owe
+
+
+def test_a_forgotten_walk_stops_pausing_sets_after_4_hours():
+    from helper import walks
+    clock = [SAT_NOON - 5 * 60 * MIN]
+    store, r = make(clock, **open_gate())
+    walks.start_walk(store, clock[0])                       # left running, never stopped
+    clock[0] = SAT_NOON
+    r.start_session(0, "dishes")
+    clock[0] += 10 * MIN
+    st = r.status()["sets"]
+    assert st["walkingSince"] is None and st["dueAt"] == clock[0] + 20 * MIN
