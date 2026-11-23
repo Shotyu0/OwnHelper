@@ -80,7 +80,8 @@ then Right Alt toggles 한/A. On Android, add Korean in Gboard / Samsung Keyboar
 3. **Korean**: clear the due reviews plus today's new words. New words are sized so the long-run load fits
    your daily minutes (40 by default), using your own answer speed once there's enough of it.
 4. **Gaming**: no daily cap. Before playing, say what you'll do right after (and a length if you want one).
-   Every 30 minutes of play a short set is due: an upper-body move plus a leg move at your home-workout level
+   A session ends by itself 10 minutes after you close the game, so the next launch asks again and checks that
+   day's gate. A game still running when the day starts (4 AM) keeps counting toward sets. Every 30 minutes of play a short set is due: an upper-body move plus a leg move at your home-workout level
    (e.g. 6 push-ups + 15 squats). Warnings come at 10 and 2 minutes, so you can do it between matches. If it's
    overdue, you get 60 s to save, then the game is closed until the set is logged (on the PC prompt or the
    phone). The watch checks each set afterwards for a heart-rate rise.

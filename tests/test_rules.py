@@ -264,6 +264,19 @@ def test_lunch_gym_day_label():
     assert r.gate()[0]["detail"] == "Today's lunch gym workout isn't logged yet"
 
 
+def test_a_session_left_open_overnight_counts_toward_todays_sets_and_minutes():
+    clock = [datetime(2026, 11, 22, 23, 0).timestamp() * 1000]   # Sunday 11 PM
+    store, r = make(clock, **open_gate())
+    r.start_session(0, "sleep")
+    clock[0] = datetime(2026, 11, 23, 8, 0).timestamp() * 1000    # still open Monday 8 AM (the day starts at 4 AM)
+    st = r.status()
+    assert st["used"] == 240                                      # 4-8 AM; Sunday's hours were Sunday's
+    assert st["sets"]["playedSince"] == 240 and st["sets"]["dueAt"] == clock[0] - 210 * MIN   # not stuck at 30
+    r.end_session()
+    clock[0] += 60 * MIN
+    assert r.status()["used"] == 240                              # ended today, so it still counts today
+
+
 def test_a_treadmill_walk_pauses_the_set_clock():
     from helper import walks
     clock = [SAT_NOON]

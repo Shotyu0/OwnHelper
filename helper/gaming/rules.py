@@ -155,11 +155,19 @@ class Rules:
         return max(open_, key=lambda s: s["startedAt"]) if open_ else None
 
     def sessions_today(self) -> list[dict]:
-        return self.store.query("sessions", [("startedAt", ">=", day_start(self.today(), self.hour))])
+        """Sessions with play in today: started today, or started before the day began and still open or ended
+        after it (a game left running overnight keeps counting toward today's sets and minutes)."""
+        start = day_start(self.today(), self.hour)
+        found = {}
+        for where in ([("startedAt", ">=", start)], [("endedAt", ">=", start)], [("open", "==", True)]):
+            for s in self.store.query("sessions", where):
+                found[s["id"]] = s
+        return list(found.values())
 
     def minutes_today(self, sessions: list[dict] | None = None) -> float:
-        now = self.clock()
-        return sum(self.session_minutes(s, now) for s in (self.sessions_today() if sessions is None else sessions))
+        now, start = self.clock(), day_start(self.today(), self.hour)
+        return sum(self.session_minutes(s, now, since=start)
+                   for s in (self.sessions_today() if sessions is None else sessions))
 
     # ------------------------------------------------------------------ dinner break
     def dinner(self) -> dict:
@@ -352,11 +360,12 @@ class Rules:
         self.store.add("overrides", {"at": self.clock(), "kind": "extend", "reason": reason.strip(),
                                      "detail": f"+{mins} min"})
 
-    def end_session(self, reason: str = "manual") -> None:
+    def end_session(self, reason: str = "manual", at: float | None = None) -> None:
+        """End the open session now, or at `at` (e.g. when its game was last seen running)."""
         sess = self.active_session()
         if not sess:
             return
-        end = self.session_end(sess, self.clock())
+        end = self.session_end(sess, self.clock() if at is None else at)
         self.mark_back(sess["id"], end)
         self.store.update("sessions", sess["id"], {"open": False, "endedAt": end, "endReason": reason})
 

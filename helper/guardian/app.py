@@ -77,6 +77,7 @@ def idle_seconds() -> float:
 PRESENT_S = 10                 # input this recently: you're at the PC (a set prompt's countdown can start)
 WALK_IDLE_END_S = 10 * 60      # away from the PC this long during a walk: it ended when you left
 WALK_ASK_TIMEOUT_S = 5 * 60     # "still walking?" unanswered this long: ended when asked
+NO_GAME_END_S = 10 * 60         # no game running this long: the session is over (the next launch asks, and gates, again)
 
 
 HOTKEYS = {1: ("W", "walk"), 2: ("D", "dinner")}
@@ -169,6 +170,7 @@ class Guardian:
         self.break_deadline: float | None = None   # None while you're away: the countdown starts when you're back
         self.break_opened = 0.0
         self.away_sid: str | None = None           # session marked away (AFK)
+        self.game_seen: tuple[str | None, float] = (None, 0.0)   # (session id, clock ms a game last ran in it)
         self.break_kill_at: float | None = None
         self.break_story = ""                      # why the countdown started, for the set_missed event
         self.input_watch = InputWatch()            # logs which device ended an idle stretch (helper.log)
@@ -390,6 +392,15 @@ class Guardian:
     def _in_session(self, sess, games) -> None:
         self.closing_until = None
         now = self.clock()
+        if games or self.game_seen[0] != sess["id"]:
+            self.game_seen = (sess["id"], now)       # (a session found open at startup gets the full 10 min)
+        elif now - self.game_seen[1] >= NO_GAME_END_S * 1000:
+            # Closing the game ends the session, so tomorrow's launch can't ride on today's (and skip its gate).
+            self._clear_break()
+            self.rules.end_session("no game", at=self.game_seen[1])
+            log.info("Session ended: no game running since %s", hms(self.game_seen[1]))
+            self.dirty = True
+            return
         end = sess.get("plannedEnd")
         if end is not None and end <= now:
             self._clear_break()

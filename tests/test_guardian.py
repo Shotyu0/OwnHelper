@@ -135,6 +135,28 @@ def test_no_games_expired_session_just_ends(env):
     assert rules.active_session() is None and not calls["timeup"]
 
 
+def test_closing_the_game_ends_the_session_after_10_minutes(env):
+    make, running, calls, _, clock, store, rules = env
+    g = make()
+    sid = rules.start_session(0, "chores")             # no length: it used to stay open until you ended it
+    running.append(GAME)
+    g._step()
+    clock[0] += 20 * MIN
+    g._step()
+    last_played = clock[0]
+    running.clear()                                    # you close the game
+    clock[0] += 9 * MIN
+    g._step()
+    assert rules.active_session()                      # a quick restart keeps the session
+    clock[0] += 1 * MIN
+    g._step()
+    s = store.get("sessions", sid)
+    assert not s["open"] and s["endReason"] == "no game" and s["endedAt"] == last_played
+    running.append(GAME)                               # the next launch asks for a session (and checks the gate)
+    g._step()
+    assert calls["kill"] == [{4242}] and calls["dialog"] == [False] and not calls["close"]
+
+
 def test_open_session_requires_a_set_every_30_minutes(env):
     make, running, calls, wall, clock, store, rules = env
     g = make()
