@@ -102,7 +102,7 @@ export async function render(main, ctx) {
           Moving soon after a meal is a good habit anyway: light walking breaks after eating lower the blood-sugar rise.</p>` : ''}
         ${s.moveBreaks?.treadmill ? `<p class="small"><b>Treadmill walk</b>: playing while you walk doesn't count toward the next set,
           since walking already breaks up the sitting (that's where the blood-sugar and blood-pressure benefit comes from). The strength
-          part isn't skipped, only paused: the clock picks up after the walk, and a set that was already due still has to be done.</p>` : ''}
+          part isn't skipped, only paused: the clock picks up after the walk, and a set you already owed is due as soon as you stop.</p>` : ''}
         <p class="small muted">Brief "exercise snacks" through the day build strength and fitness; with weekly volume equal, splitting it into more,
           smaller bouts works about as well; 1–2 minute bursts of vigorous effort in daily life are linked to lower mortality.
           Your watch checks each set afterwards by looking for a heart-rate rise. It can't unlock the game itself, because it syncs in batches every 15+ minutes.</p>

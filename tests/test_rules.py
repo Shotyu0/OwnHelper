@@ -294,7 +294,7 @@ def test_a_treadmill_walk_pauses_the_set_clock():
     assert st["walkingSince"] is None and st["dueAt"] == clock[0] + 10 * MIN
 
 
-def test_a_set_already_due_when_you_start_walking_is_still_due():
+def test_a_set_you_owe_waits_for_the_walk_and_is_due_when_you_stop():
     from helper import walks
     clock = [SAT_NOON]
     store, r = make(clock, **open_gate())
@@ -303,7 +303,24 @@ def test_a_set_already_due_when_you_start_walking_is_still_due():
     walks.start_walk(store, clock[0])
     clock[0] += 10 * MIN
     st = r.status()["sets"]
-    assert st["walkingSince"] and st["dueAt"] == clock[0] - 1 * MIN   # walking doesn't cancel a set you owe
+    assert st["walkingSince"] and st["dueAt"] is None and st["playedSince"] == 31   # no prompt mid-walk
+    walks.stop_walk(store, clock[0])
+    assert r.status()["sets"]["dueAt"] == clock[0] - 1 * MIN                       # not cancelled: due now
+
+
+def test_a_set_moved_by_dinner_doesnt_warn_during_a_walk():
+    from helper import walks
+    clock = [datetime(2026, 11, 21, 20, 0).timestamp() * 1000]   # 8 PM, inside the dinner window
+    store, r = make(clock, **open_gate())
+    r.start_session(0, "dishes")
+    clock[0] += 31 * MIN                                    # set due at the prompt, you pick "Eating dinner"
+    r.start_dinner()
+    clock[0] += 20 * MIN                                    # done eating, start walking (dinner still on 25 min)
+    walks.start_walk(store, clock[0])
+    assert r.status()["sets"]["dueAt"] is None              # was: dinner's end, so a 10-minute warning mid-walk
+    clock[0] += 40 * MIN
+    walks.stop_walk(store, clock[0])                        # dinner is over too: the set you owe is due now
+    assert r.status()["sets"]["dueAt"] == clock[0] - 1 * MIN
 
 
 def test_a_forgotten_walk_stops_pausing_sets_after_4_hours():

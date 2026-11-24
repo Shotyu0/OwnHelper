@@ -73,8 +73,8 @@ export async function render(main, ctx) {
     const due = st?.dueAt ? st.dueAt - ctx.now() : null;
     const dn = dinnerState(g, daily, ctx.now());
     setsEl.innerHTML = `<h2>Sets</h2>
-      ${dn.active ? `<div class="big">Dinner</div><div class="muted small">sets wait until ${fmtClock(dn.end)}; playing while you eat doesn't count</div>`
-        : st?.walkingSince && due == null ? `<div class="big">Walking</div><div class="muted small">sets wait while you walk (since ${fmtClock(st.walkingSince)}): ${Math.max(0, Math.ceil(st.every - st.playedSince))} min of play to the next one</div>`
+      ${st?.walkingSince && due == null ? `<div class="big">Walking</div><div class="muted small">sets wait while you walk (since ${fmtClock(st.walkingSince)}): ${st.playedSince >= st.every ? 'the set you owe is due when you stop' : `${Math.ceil(st.every - st.playedSince)} min of play to the next one`}</div>`
+        : dn.active ? `<div class="big">Dinner</div><div class="muted small">sets wait until ${fmtClock(dn.end)}; playing while you eat doesn't count</div>`
         : due != null && st.awaySince ? `<div class="big">${due > 0 ? clock(due) : 'now'}</div><div class="muted small">paused: you've been away from the PC since ${fmtClock(st.awaySince)}${due > 0 ? '' : '. The game stays open until you\'re back'}</div>`
         : due != null ? `<div class="big">${due > 0 ? clock(due) : 'now'}</div><div class="muted small">${due > 0 ? 'until the next set' : g.setsRequired ? 'set due: the game is closed until it\'s logged' : 'set overdue'}</div>`
         : `<p class="small">One every <b>${g.setEveryMinutes} min</b> of play.</p>`}

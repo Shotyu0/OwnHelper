@@ -233,6 +233,8 @@ class Guardian:
         walk = doc if doc and doc.get("start") else None
         if (walk or {}).get("start") != (self.walk or {}).get("start"):
             self.dirty = True                # walking pauses the set clock: refresh it now
+            if not self.walk_stopping:       # started/stopped on the phone: the next walk gets a fresh "still walking?"
+                self.walk_check_at = self.walk_asking_since = None
         self.walk = walk
 
     def _on_daily(self, doc):
@@ -579,8 +581,9 @@ class Guardian:
 
     # ------------------------------------------------------------------ treadmill walks
     def _start_walk(self, src: str = "pc") -> None:
-        walks.start_walk(self.store, self.clock(), src)
-        self.walk = {"start": self.clock(), "src": src}
+        now = self.clock()
+        walks.start_walk(self.store, now, src)
+        self.walk = {"start": now, "src": src}
         self.walk_check_at, self.walk_asking_since = time.time(), None
         if self.nudge_at is not None:
             self._count("moveBreaks")             # walked after a nudge
@@ -593,7 +596,14 @@ class Guardian:
                 self._stop_walk_dialog()
         else:
             self._start_walk("pc")
-            self._toast("Treadmill walk started. Ctrl+Alt+W again (or Stop) when you sit down.", GOOD, seconds=5)
+            owed = " The set you owe is due when you stop." if self._set_owed() else ""
+            self._toast(f"Treadmill walk started: sets wait while you walk.{owed} Ctrl+Alt+W again (or Stop) when you "
+                        "sit down.", GOOD, seconds=6)
+
+    def _set_owed(self) -> bool:
+        """A set is already due (or was moved by dinner or a walk), so it comes due as soon as the walk ends."""
+        sets = (self.st or {}).get("sets") or {}
+        return bool(self._session() and sets.get("every") and sets.get("playedSince", 0) >= sets["every"])
 
     def _walk_tick(self, m: dict, t: float, idle: float) -> None:
         self._destroy("nudge_win")
@@ -633,7 +643,7 @@ class Guardian:
         mode = "ask" if self.walk_asking_since is not None else "walk"
         if self.walk_bar is not None and self.walk_bar_mode == mode:
             try:
-                self.walk_bar.children["label"].config(text=self._walk_text(mins, mode))
+                self.walk_bar.children["label"].config(text=self._walk_text(mins, mode, self._set_owed()))
                 return
             except (KeyError, tk.TclError):
                 pass
@@ -642,7 +652,8 @@ class Guardian:
         b = self.walk_bar = tk.Toplevel(self.root, bg=WARN if mode == "ask" else GOOD)
         b.overrideredirect(True)
         b.attributes("-topmost", True)
-        tk.Label(b, name="label", text=self._walk_text(mins, mode), bg=CARD, fg=FG, font=(FONT, 10, "bold"),
+        tk.Label(b, name="label", text=self._walk_text(mins, mode, self._set_owed()), bg=CARD, fg=FG,
+                 font=(FONT, 10, "bold"),
                  padx=12, pady=8).pack(side="left", padx=(4, 0))
         if mode == "ask":
             def still():
@@ -655,8 +666,10 @@ class Guardian:
         _no_activate(b)
 
     @staticmethod
-    def _walk_text(mins: int, mode: str) -> str:
-        return f"Still walking? ({mins} min so far)" if mode == "ask" else f"Treadmill walk · {mins} min"
+    def _walk_text(mins: int, mode: str, owed: bool = False) -> str:
+        if mode == "ask":
+            return f"Still walking? ({mins} min so far)"
+        return f"Treadmill walk · {mins} min" + (" · set due when you stop" if owed else "")
 
     def _stop_walk_dialog(self) -> None:
         if not self.walk or self.walk_stopping:

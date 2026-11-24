@@ -423,7 +423,7 @@ def test_no_desk_nudges_while_eating(env):
     assert not calls["nudge"]
 
 
-def test_no_set_warnings_during_a_treadmill_walk_but_an_owed_set_still_counts(env, monkeypatch):
+def test_no_set_warnings_or_prompts_during_a_treadmill_walk(env, monkeypatch):
     from helper import walks
     monkeypatch.setattr(gapp.Guardian, "_show_walk_bar", lambda self: setattr(self, "walk_bar", object()))
     make, running, calls, wall, clock, store, rules = env
@@ -447,8 +447,14 @@ def test_no_set_warnings_during_a_treadmill_walk_but_an_owed_set_still_counts(en
     walks.stop_walk(store, clock[0])
     later(3)
     assert g.st["sets"]["dueAt"] == pytest.approx(clock[0] + 15 * MIN, abs=5000)   # 15 min of play left
-    later(15 * 60 + 30)                               # due: a walk started now doesn't cancel it
+    later(15 * 60 + 30)                               # due, and the prompt opens
     assert calls["break"] == [True]
-    walks.start_walk(store, clock[0])
+    walks.start_walk(store, clock[0])                 # you owe it, then start walking: the prompt goes away
     later(3)
-    assert g.break_win is not None and g.st["sets"]["dueAt"] <= clock[0]
+    assert g.break_win is None and g.st["sets"]["dueAt"] is None
+    later(20 * 60)
+    assert walks.open_walk(store)                     # not ended by the last walk's stale "still walking?" timer
+    assert calls["break"] == [True] and not calls["kill"] and not calls["close"]
+    walks.stop_walk(store, clock[0])                  # not cancelled: due the moment you step off
+    later(3)
+    assert calls["break"] == [True, True]

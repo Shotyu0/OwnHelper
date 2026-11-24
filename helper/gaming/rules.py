@@ -17,8 +17,8 @@ Away from the PC (AFK): after afkMinutes with no keyboard or mouse input, the gu
 count toward the next set, and an overdue set only starts its close-the-game countdown once you're back.
 
 Treadmill walk (helper/walks.py): walking already breaks up the sitting, so play while you walk doesn't count
-toward the next set and no set comes due or warns during the walk (dueAt None). A set that was already due when
-you started walking is still due: walking pauses the clock, it doesn't cancel a set you owe.
+toward the next set and no set comes due or warns during the walk (dueAt None), even during dinner. A set you
+already owed when the walk started isn't cancelled: it comes due the moment you stop walking (like dinner).
 
 Gate inputs (same as web/js/pages/today.js gateInputs):
   workouts/{id}.day/status, exercises (watch) .start/.dur, cards .due/.introducedAt/.newRank,
@@ -244,10 +244,10 @@ class Rules:
         left = every - played
         if not sess:
             due = None
+        elif walking:
+            due = None                                # nothing comes due mid-walk; a set you owe is due when you stop
         elif dn["active"]:
             due = dn["end"] + max(0.0, left) * MIN    # a set that came due while eating waits until after
-        elif walking and left > 0:
-            due = None                                # paused while you walk; a set already owed stays due
         else:
             due = now + left * MIN
         # Stored as [{items: [...]}, ...] (Firestore has no arrays inside arrays); see web/js/workout.js toStored.
