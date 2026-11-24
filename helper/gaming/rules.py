@@ -106,12 +106,19 @@ class Rules:
                          and "walk" not in str(x.get("type", "")).lower()]   # walks count as steps (workout.js watchCounts)
                 if watch:
                     done_as = "watch"
-            lunch_free = sched == "gym30" and not g.get("lunchWorkoutGates", True)
+            # Lunch gym: the morning is open, and games lock from lunch until the workout is logged.
+            lunch = int(g.get("lunchWorkoutAt") or 0)
+            until = day_start(today, lunch) if sched == "gym30" and lunch and not done_as else None
+            until = until if until and now < until else None
             detail = {"done": "Done", "minimum": "Minimum version done", "watch": "Watch workout recorded"}.get(
-                done_as, "Rest day" if sched == "rest" else f"Today's {DAY_LABELS.get(sched, sched)} workout isn't logged yet"
-                + (" (doesn't lock games)" if lunch_free else ""))
-            items.append({"key": "workout", "label": "Workout", "ok": bool(done_as) or sched == "rest" or lunch_free,
-                          "detail": detail})
+                done_as, "Rest day" if sched == "rest" else
+                f"Lunch workout isn't logged yet: play until {hour_label(lunch)}, then games lock until it is" if until else
+                f"Today's {DAY_LABELS.get(sched, sched)} workout isn't logged yet")
+            item = {"key": "workout", "label": "Workout", "ok": bool(done_as) or sched == "rest" or bool(until),
+                    "detail": detail}
+            if until:
+                item["until"] = until        # sessions started now end then (start_session)
+            items.append(item)
         if sched == "rest" and a.get("restDayStepGoal", 0) > 0:
             steps = (self.store.get("daily", calendar_day(now)) or {}).get("steps", 0)
             items.append({"key": "steps", "label": "Rest-day walk", "ok": steps >= a["restDayStepGoal"],
@@ -349,8 +356,12 @@ class Rules:
                 limit = min(limit, cap_left if cap_left >= 5 else g["overrideExtendMinutes"])
             minutes = int(max(5, min(minutes if minutes > 0 else limit, limit)))
             planned_end = now + minutes * MIN
-        return self.store.add("sessions", {"startedAt": now, "plannedEnd": planned_end, "open": True,
-                                           "nextAction": next_action.strip(), "games": games})
+        doc = {"startedAt": now, "plannedEnd": planned_end, "open": True, "nextAction": next_action.strip(),
+               "games": games}
+        until = min((i["until"] for i in st["gate"] if i.get("until")), default=None)
+        if until and (planned_end is None or planned_end > until):
+            doc.update(plannedEnd=until, lunch=True)     # a morning session ends when the lunch workout is due
+        return self.store.add("sessions", doc)
 
     def extend_session(self, reason: str) -> None:
         sess = self.active_session()

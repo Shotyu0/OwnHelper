@@ -1092,8 +1092,11 @@ class Guardian:
         w = self.timeup_win = self._window("Time's up")
         w.protocol("WM_DELETE_WINDOW", lambda: None)  # can't just close it
         self._label(w, "Time's up", 22, bold=True)
-        planned = (sess["plannedEnd"] - sess["startedAt"]) / 60000
-        self._label(w, f"You chose {planned:.0f} minutes, and they're over.", 11, MUTED)
+        if sess.get("lunch"):
+            self._label(w, "Time for your lunch workout. Games are locked until it's logged.", 11, MUTED)
+        else:
+            planned = (sess["plannedEnd"] - sess["startedAt"]) / 60000
+            self._label(w, f"You chose {planned:.0f} minutes, and they're over.", 11, MUTED)
         if sess.get("nextAction"):
             self._label(w, f"Next: {sess['nextAction']}", 14, GOOD, bold=True, pady=(8, 8))
         count = self._label(w, "", 12, WARN, bold=True)

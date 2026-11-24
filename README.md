@@ -72,8 +72,9 @@ then Right Alt toggles 한/A. On Android, add Korean in Gboard / Samsung Keyboar
 
 ## Daily flow
 
-1. **Today** shows the gate (today's workout + Korean). Games stay locked until both are done. A lunch-gym workout
-   can be left out of the gate (Settings), so the morning before it only needs Korean.
+1. **Today** shows the gate (today's workout + Korean). Games stay locked until both are done. On lunch-gym days the
+   morning only needs Korean: a session started before lunch (12 by default, Settings) ends at lunch, and from then
+   games are locked until the workout is logged.
 2. **Workout**: log sets on your phone; the app sets next session's targets. A watch-recorded workout of 20+ min
    (not a walk) also counts. Schedule days can be gym, **lunch gym (30 min)**, home or rest. Lunch sessions
    alternate upper and lower, each as two supersets (alternate two exercises with 60 s rest), which roughly

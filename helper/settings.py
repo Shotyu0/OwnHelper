@@ -19,7 +19,7 @@ DEFAULTS = {
                    "walkMinutes": 15},
     "gaming": {
         "requireWorkout": True, "countMinimumWorkout": True, "requireKoreanReviews": True, "requireKoreanNewCards": True,
-        "lunchWorkoutGates": True,   # off: on lunch-gym days the workout (later, at lunch) doesn't lock morning games
+        "lunchWorkoutAt": 12,   # lunch-gym days: games lock from this hour until the workout is logged (0 = all day)
         # 0 = no limit (session choices, daily caps, set interval).
         "sessionChoices": [0, 30, 60, 90, 120], "dailyCapWeekday": 0, "dailyCapWeekend": 0, "cooldownMinutes": 0,
         "setEveryMinutes": 30, "setsRequired": True, "setMinSeconds": 30, "setMenu": [],

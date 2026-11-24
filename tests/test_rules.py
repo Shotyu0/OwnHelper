@@ -53,16 +53,26 @@ def test_minimum_workout_and_rest_day_steps():
     assert items["workout"]["ok"] and not items["steps"]["ok"] and items["steps"]["detail"] == "4,200 / 6,000 steps"
 
 
-def test_lunch_workout_can_be_left_out_of_the_gate():
-    clock = [SAT_NOON]
+def test_lunch_gym_days_are_open_in_the_morning_and_locked_from_lunch():
+    clock = [datetime(2026, 11, 21, 7, 0).timestamp() * 1000]   # 7 AM, lunch gym at 12
     store, r = make(clock, requireKoreanReviews=False, requireKoreanNewCards=False)
-    r.settings["workout"]["schedule"]["sat"] = "gym30"           # lunch gym
+    r.settings["workout"]["schedule"]["sat"] = "gym30"
     item = r.gate()[0]
-    assert not item["ok"] and r.status()["blockers"]              # default: locked until the workout is logged
-    r.settings["gaming"]["lunchWorkoutGates"] = False
-    item = r.gate()[0]
-    assert item["ok"] and item["detail"].endswith("(doesn't lock games)") and not r.status()["blockers"]
-    r.settings["workout"]["schedule"]["sat"] = "gym"              # other workout days still lock
+    assert item["ok"] and "play until 12 PM" in item["detail"] and not r.status()["blockers"]
+    sid = r.start_session(0, "lunch gym")                        # "no limit" still ends at lunch
+    s = store.get("sessions", sid)
+    assert s["plannedEnd"] == SAT_NOON and s["lunch"]
+    r.end_session()
+    clock[0] = SAT_NOON + 30 * MIN                               # after lunch, nothing logged: locked
+    assert not r.gate()[0]["ok"] and r.status()["blockers"]
+    store.set("workouts", "w", {"day": "2026-11-21", "status": "done"})
+    assert r.gate()[0]["ok"] and not r.status()["blockers"]
+    clock[0] = datetime(2026, 11, 21, 7, 0).timestamp() * 1000
+    r.settings["gaming"]["lunchWorkoutAt"] = 0                    # 0: locked all day, as before
+    store.delete("workouts", "w")
+    assert not r.gate()[0]["ok"]
+    r.settings["gaming"]["lunchWorkoutAt"] = 12
+    r.settings["workout"]["schedule"]["sat"] = "gym"              # other workout days lock all day
     assert not r.gate()[0]["ok"]
 
 

@@ -52,7 +52,7 @@ export async function render(main, ctx) {
     <div class="card"><h2>Gaming</h2>
       <p class="small muted">Tighter limits apply now. Looser ones start tomorrow, so the decision isn't made mid-urge.</p>
       ${box('requireWorkout', g.requireWorkout, 'Workout before games')}
-      ${box('lunchWorkoutGates', g.lunchWorkoutGates, 'On lunch-gym days too (off: mornings only need Korean)')}
+      ${num('lunchWorkoutAt', g.lunchWorkoutAt, 'Lunch-gym days: play until this hour, then locked until the workout is logged (0 = locked all day)', 'min="0" max="23"')}
       ${box('countMinimumWorkout', g.countMinimumWorkout, 'The minimum version counts')}
       ${box('requireKoreanReviews', g.requireKoreanReviews, 'Korean reviews before games')}
       ${box('requireKoreanNewCards', g.requireKoreanNewCards, "Today's new Korean cards before games")}
@@ -115,7 +115,7 @@ export async function render(main, ctx) {
     const choices = [...new Set(v('sessionChoices').value.split(/[,\s]+/).filter(Boolean).map(Number)
       .filter(x => x === 0 || x >= 5))].sort((a, b) => (a || Infinity) - (b || Infinity));
     const gaming = {
-      ...g, requireWorkout: v('requireWorkout').checked, lunchWorkoutGates: v('lunchWorkoutGates').checked,
+      ...g, requireWorkout: v('requireWorkout').checked, lunchWorkoutAt: n('lunchWorkoutAt'),
       countMinimumWorkout: v('countMinimumWorkout').checked,
       requireKoreanReviews: v('requireKoreanReviews').checked, requireKoreanNewCards: v('requireKoreanNewCards').checked,
       dailyCapWeekday: n('dailyCapWeekday'), dailyCapWeekend: n('dailyCapWeekend'), cooldownMinutes: n('cooldownMinutes'),

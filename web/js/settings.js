@@ -17,8 +17,9 @@ export const DEFAULTS = {
   moveBreaks: { enabled: true, everyMinutes: 30, awayMinutes: 3, snoozeMinutes: 15, treadmill: false, walkMinutes: 15 },
   gaming: {
     requireWorkout: true, countMinimumWorkout: true, requireKoreanReviews: true, requireKoreanNewCards: true,
-    // Off: on lunch-gym days (schedule "gym30") the workout, which happens later at lunch, doesn't lock morning games.
-    lunchWorkoutGates: true,
+    // Lunch-gym days (schedule "gym30"): the morning is open, and games lock from this hour until the workout is
+    // logged; a session started before it ends then (helper/gaming/rules.py). 0 = locked all day.
+    lunchWorkoutAt: 12,
     // 0 = no limit (session choices, daily caps, set interval).
     sessionChoices: [0, 30, 60, 90, 120], dailyCapWeekday: 0, dailyCapWeekend: 0, cooldownMinutes: 0,
     // A short set (push/pull + legs) every setEveryMinutes of play; setsRequired closes the game when one is overdue.
@@ -51,10 +52,10 @@ export function effectiveGaming(settings, today) {
 }
 
 const noLimit = x => (x > 0 ? x : Infinity);   // 0 means "no limit"
-const MORE_IS_LOOSER = ['graceSeconds', 'overrideMaxPerDay', 'overrideExtendMinutes', 'dinnerMinutes', 'dinnerTo'];
+const MORE_IS_LOOSER = ['graceSeconds', 'overrideMaxPerDay', 'overrideExtendMinutes', 'dinnerMinutes', 'dinnerTo', 'lunchWorkoutAt'];
 const LIMITS = ['dailyCapWeekday', 'dailyCapWeekend', 'setEveryMinutes'];
 const LESS_IS_LOOSER = ['cooldownMinutes', 'overrideWaitSeconds', 'overrideMinReasonChars', 'setMinSeconds', 'dinnerFrom'];
-const OFF_IS_LOOSER = ['requireWorkout', 'lunchWorkoutGates', 'requireKoreanReviews', 'requireKoreanNewCards', 'setsRequired'];
+const OFF_IS_LOOSER = ['requireWorkout', 'requireKoreanReviews', 'requireKoreanNewCards', 'setsRequired'];
 
 export function isLooser(old, next) {
   if (MORE_IS_LOOSER.some(k => next[k] > old[k])) return true;

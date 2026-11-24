@@ -1,4 +1,4 @@
-import { addDays, parseDay, calendarDay, fmtDateTime, fmtDuration, fmtClock } from '../time.js';
+import { addDays, parseDay, calendarDay, dayStart, fmtDateTime, fmtDuration, fmtClock } from '../time.js';
 import { counts } from '../korean.js';
 import { scheduled, streak, consistency, workoutStatus, watchCounts, syncSetPlan, setText, dayLabel } from '../workout.js';
 import { summarize } from '../activity.js';
@@ -27,10 +27,13 @@ export async function gateInputs(ctx) {
   const g = effectiveGaming(settings, today), a = settings.activity;
   const items = [];
   if (g.requireWorkout) {
-    const lunchFree = ws.scheduled === 'gym30' && g.lunchWorkoutGates === false;   // mirrors helper/gaming/rules.py
+    // Lunch gym: the morning is open, games lock from lunch until it's logged (mirrors helper/gaming/rules.py gate).
+    const lunch = Math.floor(g.lunchWorkoutAt || 0);
+    const lunchFree = ws.scheduled === 'gym30' && lunch > 0 && !ws.done && now < dayStart(today, lunch);
     const detail = ws.doneAs === 'done' ? 'Done' : ws.doneAs === 'minimum' ? 'Minimum version done'
       : ws.doneAs === 'watch' ? `Watch workout (${fmtDuration(ws.watch.dur / 60)})` : ws.scheduled === 'rest' ? 'Rest day'
-        : `Today's ${dayLabel(ws.scheduled)} workout isn't logged yet${lunchFree ? " (doesn't lock games)" : ''}`;
+        : lunchFree ? `Lunch workout isn't logged yet: play until ${fmtClock(dayStart(today, lunch))}, then games lock until it is`
+          : `Today's ${dayLabel(ws.scheduled)} workout isn't logged yet`;
     items.push({ key: 'workout', label: 'Workout', ok: ws.satisfied || lunchFree, detail, href: '#/workout' });
   }
   if (ws.scheduled === 'rest' && a.restDayStepGoal > 0) {
