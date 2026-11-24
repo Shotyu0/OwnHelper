@@ -132,6 +132,7 @@ test('loosening gaming limits waits until tomorrow, tightening is immediate', ()
   const tighter = gamingChange(s, { ...s.gaming, dailyCapWeekday: 60, requireWorkout: true }, '2026-11-21', '2026-11-22');
   assert.ok(!tighter.delayed); assert.equal(tighter.patch.gaming.dailyCapWeekday, 60);
   assert.ok(gamingChange(s, { ...s.gaming, requireKoreanReviews: false }, 'a', 'b').delayed);
+  assert.ok(gamingChange(s, { ...s.gaming, lunchWorkoutGates: false }, 'a', 'b').delayed);
   assert.ok(gamingChange(s, { ...s.gaming, sessionChoices: [30, 120] }, 'a', 'b').delayed);
 });
 

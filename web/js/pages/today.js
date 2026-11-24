@@ -27,10 +27,11 @@ export async function gateInputs(ctx) {
   const g = effectiveGaming(settings, today), a = settings.activity;
   const items = [];
   if (g.requireWorkout) {
+    const lunchFree = ws.scheduled === 'gym30' && g.lunchWorkoutGates === false;   // mirrors helper/gaming/rules.py
     const detail = ws.doneAs === 'done' ? 'Done' : ws.doneAs === 'minimum' ? 'Minimum version done'
       : ws.doneAs === 'watch' ? `Watch workout (${fmtDuration(ws.watch.dur / 60)})` : ws.scheduled === 'rest' ? 'Rest day'
-        : `Today's ${dayLabel(ws.scheduled)} workout isn't logged yet`;
-    items.push({ key: 'workout', label: 'Workout', ok: ws.satisfied, detail, href: '#/workout' });
+        : `Today's ${dayLabel(ws.scheduled)} workout isn't logged yet${lunchFree ? " (doesn't lock games)" : ''}`;
+    items.push({ key: 'workout', label: 'Workout', ok: ws.satisfied || lunchFree, detail, href: '#/workout' });
   }
   if (ws.scheduled === 'rest' && a.restDayStepGoal > 0) {
     items.push({ key: 'steps', label: 'Rest-day walk', ok: steps >= a.restDayStepGoal,

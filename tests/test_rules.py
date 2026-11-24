@@ -53,6 +53,19 @@ def test_minimum_workout_and_rest_day_steps():
     assert items["workout"]["ok"] and not items["steps"]["ok"] and items["steps"]["detail"] == "4,200 / 6,000 steps"
 
 
+def test_lunch_workout_can_be_left_out_of_the_gate():
+    clock = [SAT_NOON]
+    store, r = make(clock, requireKoreanReviews=False, requireKoreanNewCards=False)
+    r.settings["workout"]["schedule"]["sat"] = "gym30"           # lunch gym
+    item = r.gate()[0]
+    assert not item["ok"] and r.status()["blockers"]              # default: locked until the workout is logged
+    r.settings["gaming"]["lunchWorkoutGates"] = False
+    item = r.gate()[0]
+    assert item["ok"] and item["detail"].endswith("(doesn't lock games)") and not r.status()["blockers"]
+    r.settings["workout"]["schedule"]["sat"] = "gym"              # other workout days still lock
+    assert not r.gate()[0]["ok"]
+
+
 def test_locked_gate_needs_override_and_overrides_are_limited():
     clock = [SAT_NOON]
     store, r = make(clock)

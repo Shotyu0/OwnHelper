@@ -106,9 +106,12 @@ class Rules:
                          and "walk" not in str(x.get("type", "")).lower()]   # walks count as steps (workout.js watchCounts)
                 if watch:
                     done_as = "watch"
+            lunch_free = sched == "gym30" and not g.get("lunchWorkoutGates", True)
             detail = {"done": "Done", "minimum": "Minimum version done", "watch": "Watch workout recorded"}.get(
-                done_as, "Rest day" if sched == "rest" else f"Today's {DAY_LABELS.get(sched, sched)} workout isn't logged yet")
-            items.append({"key": "workout", "label": "Workout", "ok": bool(done_as) or sched == "rest", "detail": detail})
+                done_as, "Rest day" if sched == "rest" else f"Today's {DAY_LABELS.get(sched, sched)} workout isn't logged yet"
+                + (" (doesn't lock games)" if lunch_free else ""))
+            items.append({"key": "workout", "label": "Workout", "ok": bool(done_as) or sched == "rest" or lunch_free,
+                          "detail": detail})
         if sched == "rest" and a.get("restDayStepGoal", 0) > 0:
             steps = (self.store.get("daily", calendar_day(now)) or {}).get("steps", 0)
             items.append({"key": "steps", "label": "Rest-day walk", "ok": steps >= a["restDayStepGoal"],
