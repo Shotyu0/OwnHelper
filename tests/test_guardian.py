@@ -213,6 +213,36 @@ def test_desk_nudge_after_30_minutes_and_counts_getting_up(env):
     assert len(calls["nudge"]) == 1
 
 
+def test_a_night_of_game_keep_awake_input_isnt_sitting_at_the_desk(env):
+    make, running, calls, wall, clock, store, rules = env
+    g = make()
+    rules.start_session(0, "sleep")
+    running.append(GAME)
+    g.presence = Presence(wall["t"], 0)               # the real thing, fed by each guardian tick
+    last = [wall["t"]]
+
+    def tick(sec, user=False, blip=False):
+        wall["t"] += sec
+        clock[0] += sec * 1000
+        if user or blip:
+            last[0] = wall["t"]
+        wall["idle"] = wall["t"] - last[0]
+        g._step()
+
+    tick(2.5, user=True)
+    for _ in range(72):                               # an hour in bed; the game pokes the mouse every 50 s
+        tick(50, blip=True)
+    rules.end_session()                               # morning: you end the session and close the game
+    running.clear()
+    tick(2.5, user=True)
+    tick(1, user=True)
+    assert not calls["nudge"]                         # was: "sitting" since last night, so a nudge right away
+    for _ in range(31):                               # then 31 min at the desk
+        tick(57, user=True)
+        tick(3, user=True)
+    assert len(calls["nudge"]) == 1
+
+
 def test_no_desk_nudges_while_gaming(env):
     make, running, calls, wall, clock, store, rules = env
     g = make()

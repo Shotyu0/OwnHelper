@@ -551,7 +551,7 @@ class Guardian:
     # ------------------------------------------------------------------ get-up nudges while working
     def _move_check(self, in_session: bool) -> None:
         m = self.rules.settings.get("moveBreaks") or {}
-        t, idle = time.time(), idle_seconds()
+        t, idle = time.time(), self._away_idle()   # not idle_seconds(): AION 2's keep-awake poke isn't you sitting here
         if self.walk:
             self._walk_tick(m, t, idle)
             return
