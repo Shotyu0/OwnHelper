@@ -298,6 +298,9 @@ export function spellingTips(expected, typed) {
       if (a[1] !== b[1]) tips.push(alike(SAME_VOWEL, a[1], b[1])
         ? `${a[1]} and ${b[1]} sound the same in today's Korean, so which one a word uses is memorized per word (${ch} has ${a[1]}).`
         : `${a[1]} is "${ROMAN[a[1]]}", ${b[1]} is "${ROMAN[b[1]]}".`);
+      const an = blockParts(w[i + 1]), bn = blockParts(g[i + 1]);
+      if (!a[2] && b[2] && an?.[0] === b[2] && bn?.[0] === 'ㅇ')
+        tips.push(`${b[2]} starts the next block (${w[i]}${w[i + 1]}, not ${g[i]}${g[i + 1]}): a consonant between two vowels goes with the vowel after it. Type the letters in the order you hear them and the keyboard groups them for you.`);
       if (a[2] && b[2] && a[2] !== b[2] && alike(SAME_FINAL, a[2], b[2]))
         tips.push(`At the end of a block ㄷ ㅅ ㅆ ㅈ ㅊ ㅌ ㅎ all sound like "t" (ㄱ ㄲ ㅋ like "k", ㅂ ㅍ like "p"), so the final letter is memorized per word (${ch} ends in ${a[2]}).`);
     });

@@ -98,6 +98,12 @@ test('a missed spelling names the rule behind it', () => {
   assert.match(K.spellingTips('개', '게')[0], /sound the same/);
   assert.match(K.spellingTips('옷', '옫')[0], /sound like "t"/);
   assert.deepEqual(K.spellingTips('커피', '거피'), ['ㅋ is "k", ㄱ is "g".']);
+  assert.deepEqual(K.spellingTips('피아노', '비안요'), [
+    'ㅍ is "p", ㅂ is "b".',
+    'ㄴ starts the next block (아노, not 안요): a consonant between two vowels goes with the vowel after it. Type the letters in the order you hear them and the keyboard groups them for you.',
+    'ㅗ is "o", ㅛ is "yo".',
+  ]);
+  assert.deepEqual(K.spellingTips('게임', '거임'), ['ㅔ is "e", ㅓ is "eo".']);
   assert.deepEqual(K.spellingTips('게임', '게임'), []);
   assert.deepEqual(K.spellingTips('게임', ''), []);
 });
