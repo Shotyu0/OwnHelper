@@ -85,6 +85,8 @@ mark { background: var(--warn-bg); color: inherit; padding: 0 2px; border-radius
 .r1 { color: var(--bad) !important; } .r3 { color: var(--good) !important; }
 .typed { font-size: 26px; text-align: center; margin-top: 16px; }
 .diff { font-size: 22px; margin-top: 10px; }
+.parts { font-size: 18px; margin-top: 4px; }
+.tip { max-width: 34em; margin: 8px auto 0; padding: 6px 10px; border-radius: 8px; background: var(--warn-bg); text-align: left; }
 .kbd { display: grid; gap: 4px; justify-content: center; margin-top: 10px; font-size: 13px; }
 .kbd div { display: flex; gap: 4px; justify-content: center; }
 .kbd span { border: 1px solid var(--line); border-radius: 6px; padding: 2px 0; width: 38px; text-align: center; background: var(--card2); }

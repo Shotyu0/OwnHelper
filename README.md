@@ -131,7 +131,11 @@ scheduler in Anki). The order is:
 3. The most frequent words, with the grammar needed to parse sentences mixed in early.
 
 Each word starts as a **reading card**. Its **typing card** unlocks once the reading memory lasts 7+ days,
-because recognizing a word comes before producing it. Typing is checked letter by letter (jamo).
+because recognizing a word comes before producing it. Typing is checked letter by letter (jamo). Hangul is
+spelled the way it sounds apart from a few things, so you learn rules rather than each word's spelling. Hangul-stage
+words are typed from the sound (the card says the word). A miss shows the letters inside each block and names the
+rule behind the slip: a silent ㅇ before a vowel, ㅐ/ㅔ (same sound), final consonants that sound alike, or a final
+consonant said at the start of the next block (한국어 sounds like 한구거).
 
 The **Reader** (PC) shows what % of a pasted text you know: ~95% is good for learning, ~98% is comfortable
 (Hu & Nation 2000). Click an unknown word to add it with its sentence; your own words come before the starter deck.

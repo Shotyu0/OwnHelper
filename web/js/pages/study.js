@@ -1,4 +1,4 @@
-import { nextCard, counts, answer, suspend, previews, checkTyped, DECK_LABEL } from '../korean.js';
+import { nextCard, counts, answer, suspend, previews, checkTyped, blockParts, spellingTips, DECK_LABEL } from '../korean.js';
 import { inc } from '../store-core.js';
 import { esc, $ } from '../ui.js';
 
@@ -12,6 +12,10 @@ const KEYBOARD = [
 const stem = w => { const s = w.split('/')[0].replace(/^-/, '').trim(); return s.length > 1 && s.endsWith('다') ? s.slice(0, -1) : s; };
 const hl = (sentence, word) => { const s = stem(word), e = esc(sentence); return s && e.includes(esc(s)) ? e.replace(esc(s), `<mark>${esc(s)}</mark>`) : e; };
 const blank = (sentence, word) => { const s = stem(word); return s && sentence.includes(s) ? esc(sentence).replace(esc(s), '<b>＿＿＿</b>') : null; };
+// 게임 -> 게 ㄱ+ㅔ · 임 ㅇ+ㅣ+ㅁ
+const parts = word => [...word].filter(ch => ch.trim()).map(ch => { const p = blockParts(ch); return p ? `${esc(ch)} <span class="muted">${p.filter(Boolean).join('+')}</span>` : esc(ch); }).join(' · ');
+// Hangul-stage words are typed from the sound: the card says the word when it appears
+const fromSound = c => c.kind === 'type' && c.deck === 'hangul' && !!blockParts(c.ko);
 
 let koVoice = null;
 function pickVoice() { koVoice = speechSynthesis.getVoices().find(v => v.lang?.startsWith('ko')) || null; }
@@ -55,13 +59,14 @@ export async function render(main, ctx) {
     }
     intervals = previews(card, settings.korean.desiredRetention, now);
     draw();
+    if (fromSound(card)) speak(card.ko);
   }
 
   function front() {
     const c = card;
     if (c.kind === 'type') {
       const b = c.exKo && blank(c.exKo, c.ko);
-      return `<div class="muted small">Type it in Korean</div><div class="meaning mt">${esc(c.meaning)}</div>
+      return `<div class="muted small">${fromSound(c) && koVoice ? 'Type what you hear (🔊 plays it again)' : 'Type it in Korean'}</div><div class="meaning mt">${esc(c.meaning)}</div>
         ${c.deck === 'hangul' && c.hint ? `<div class="muted">${esc(c.hint)}</div>` : ''}
         ${b ? `<div class="example">${b}</div><div class="muted small">${esc(c.exEn)}</div>` : ''}
         <input id="typed" lang="ko" autocomplete="off" autocapitalize="off" class="typed" placeholder="한국어로…" ${phase === 'back' ? 'disabled' : ''} value="${esc(typed)}">`;
@@ -77,9 +82,11 @@ export async function render(main, ctx) {
     if (c.kind === 'type') {
       if (result.correct) h += `<div class="diff" style="color:var(--good)">✓ ${esc(c.ko)}</div>`;
       else {
-        const exp = [...c.ko.split('/')[0].trim()], got = [...typed];
+        const want = c.ko.split('/')[0].trim(), exp = [...want], got = [...typed];
         h += `<div class="diff">${exp.map((ch, i) => `<span style="color:var(--${got[i] === ch ? 'good' : 'bad'})">${esc(ch)}</span>`).join('')}</div>
-          <div class="muted small">you typed: ${esc(typed) || '—'}${result.distance === 1 ? ' · one letter off' : ''}</div>`;
+          <div class="parts">${parts(want)}</div>
+          <div class="muted small">you typed: ${typed ? `${esc(typed)}${typed !== want ? ` · ${parts(typed)}` : ''}` : '—'}${result.distance === 1 ? ' · one letter off' : ''}</div>
+          ${spellingTips(c.ko, typed).map(t => `<div class="tip small">${esc(t)}</div>`).join('')}`;
       }
     } else h += `<div class="meaning">${esc(c.meaning)}</div>`;
     if (c.hint && !(c.kind === 'type' && c.deck === 'hangul')) h += `<div class="muted">${esc(c.hint)}</div>`;

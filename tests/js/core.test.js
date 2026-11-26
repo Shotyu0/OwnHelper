@@ -83,6 +83,25 @@ test('typing check works letter by letter', () => {
   assert.equal(K.checkTyped('커피', '컴퓨터').suggested, 1);
 });
 
+test('a missed spelling names the rule behind it', () => {
+  assert.deepEqual(K.blockParts('임'), ['ㅇ', 'ㅣ', 'ㅁ']);
+  assert.deepEqual(K.blockParts('게'), ['ㄱ', 'ㅔ', '']);
+  assert.equal(K.blockParts('ㄱ'), null);
+  assert.equal(K.linked('한국어'), '한구거');
+  assert.equal(K.linked('좋아요'), '조아요');
+  assert.equal(K.linked('강아지'), '강아지');   // final ㅇ stays
+  const game = K.spellingTips('게임', '그미');
+  assert.equal(game.length, 2);
+  assert.match(game.join(' '), /임 = ㅇ\+ㅣ\+ㅁ/);
+  assert.match(game.join(' '), /ㅔ is "e", ㅡ is "eu"/);
+  assert.match(K.spellingTips('한국어', '한구거')[0], /written 한국어/);
+  assert.match(K.spellingTips('개', '게')[0], /sound the same/);
+  assert.match(K.spellingTips('옷', '옫')[0], /sound like "t"/);
+  assert.deepEqual(K.spellingTips('커피', '거피'), ['ㅋ is "k", ㄱ is "g".']);
+  assert.deepEqual(K.spellingTips('게임', '게임'), []);
+  assert.deepEqual(K.spellingTips('게임', ''), []);
+});
+
 // ------------------------------------------------------------------------------------- workout
 test('double progression: weight, deload, ladder', () => {
   const bench = template('gym_a').find(s => s.key === 'gym.bench');

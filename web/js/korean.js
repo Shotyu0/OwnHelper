@@ -242,3 +242,65 @@ export function checkTyped(expected, typed) {
   if (dist === 0) return { correct: true, distance: 0, suggested: 3 };
   return { correct: false, distance: dist, suggested: dist === 1 ? 2 : 1 };
 }
+
+// ------------------------------------------------------------------------------------------- spelling help
+// Hangul is spelled the way it sounds, apart from a few things: ㅐ/ㅔ sound alike, several final consonants
+// sound alike, and a final consonant is said at the start of a next block that begins with ㅇ. After a miss
+// the card shows the letters inside each block and names the rule behind the slip.
+const INIT = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ', VOWEL = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ';
+const FINAL = ['', ...'ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ'];
+const ROMAN = Object.fromEntries([...VOWEL].map((v, i) =>
+  [v, 'a ae ya yae eo e yeo ye o wa wae oe yo u wo we wi yu eu ui i'.split(' ')[i]]));
+const ROMAN_C = Object.fromEntries([...INIT].map((c, i) =>
+  [c, 'g kk n d tt r m b pp s ss - j jj ch k t p h'.split(' ')[i]]));
+const SAME_VOWEL = [['ㅐ', 'ㅔ'], ['ㅒ', 'ㅖ'], ['ㅙ', 'ㅞ', 'ㅚ']];
+const SAME_FINAL = [['ㄷ', 'ㅅ', 'ㅆ', 'ㅈ', 'ㅊ', 'ㅌ', 'ㅎ'], ['ㄱ', 'ㄲ', 'ㅋ'], ['ㅂ', 'ㅍ']];
+const alike = (groups, a, b) => groups.some(g => g.includes(a) && g.includes(b));
+
+/** 임 -> ['ㅇ', 'ㅣ', 'ㅁ'] (initial, vowel, final or ''); null for anything that isn't a Hangul block. */
+export function blockParts(ch) {
+  const n = (ch || '').codePointAt(0) - 0xac00;
+  if (!(n >= 0 && n <= 11171)) return null;
+  return [INIT[Math.floor(n / 588)], VOWEL[Math.floor(n / 28) % 21], FINAL[n % 28]];
+}
+const block = ([i, v, f]) => String.fromCodePoint(0xac00 + (INIT.indexOf(i) * 21 + VOWEL.indexOf(v)) * 28 + FINAL.indexOf(f));
+
+/** How it sounds when a final consonant slides into a next block that starts with ㅇ: 한국어 -> 한구거, 좋아 -> 조아. */
+export function linked(word) {
+  const b = [...word].map(blockParts);
+  for (let i = 0; i + 1 < b.length; i++) {
+    const [p, q] = [b[i], b[i + 1]];
+    if (!p || !q || !p[2] || q[0] !== 'ㅇ' || p[2] === 'ㅇ' || !INIT.includes(p[2])) continue;
+    b[i + 1] = [p[2] === 'ㅎ' ? 'ㅇ' : p[2], q[1], q[2]];
+    b[i] = [p[0], p[1], ''];
+  }
+  return b.map((p, i) => (p ? block(p) : [...word][i])).join('');
+}
+
+/** Short reasons a typed answer was off, for the usual sound-to-spelling slips. */
+export function spellingTips(expected, typed) {
+  const got = norm(typed);
+  if (!got) return [];
+  const options = expected.split('/').map(norm).filter(Boolean);
+  const want = options.sort((a, b) => editDistance(jamo(got), jamo(a)) - editDistance(jamo(got), jamo(b)))[0];
+  if (!want || want === got) return [];
+  if (linked(want) === got) return [`It sounds like ${got} but is written ${want}: a final consonant is said at the start of a next block that begins with ㅇ, but it's written in its own block.`];
+  const tips = [], w = [...want], g = [...got];
+  const silent = s => [...s].filter(ch => blockParts(ch)?.[0] === 'ㅇ');
+  const missing = silent(want).find(ch => !g.includes(ch));
+  if (silent(got).length < silent(want).length && missing)
+    tips.push(`${missing} = ${blockParts(missing).filter(Boolean).join('+')}: a block that starts with a vowel sound gets a silent ㅇ first, and a consonant after the vowel goes underneath.`);
+  if (w.length === g.length) {
+    w.forEach((ch, i) => {
+      const a = blockParts(ch), b = blockParts(g[i]);
+      if (!a || !b) return;
+      if (a[0] !== b[0] && a[0] !== 'ㅇ' && b[0] !== 'ㅇ') tips.push(`${a[0]} is "${ROMAN_C[a[0]]}", ${b[0]} is "${ROMAN_C[b[0]]}".`);
+      if (a[1] !== b[1]) tips.push(alike(SAME_VOWEL, a[1], b[1])
+        ? `${a[1]} and ${b[1]} sound the same in today's Korean, so which one a word uses is memorized per word (${ch} has ${a[1]}).`
+        : `${a[1]} is "${ROMAN[a[1]]}", ${b[1]} is "${ROMAN[b[1]]}".`);
+      if (a[2] && b[2] && a[2] !== b[2] && alike(SAME_FINAL, a[2], b[2]))
+        tips.push(`At the end of a block ㄷ ㅅ ㅆ ㅈ ㅊ ㅌ ㅎ all sound like "t" (ㄱ ㄲ ㅋ like "k", ㅂ ㅍ like "p"), so the final letter is memorized per word (${ch} ends in ${a[2]}).`);
+    });
+  }
+  return [...new Set(tips)];
+}
