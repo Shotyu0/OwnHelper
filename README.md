@@ -79,8 +79,12 @@ then Right Alt toggles 한/A. On Android, add Korean in Gboard / Samsung Keyboar
    (not a walk) also counts. Schedule days can be gym, **lunch gym (30 min)**, home or rest. Lunch sessions
    alternate upper and lower, each as two supersets (alternate two exercises with 60 s rest), which roughly
    halves the time for the same sets (Iversen et al. 2021).
-3. **Korean**: clear the due reviews plus today's new words. New words are sized so the long-run load fits
-   your daily minutes (40 by default), using your own answer speed once there's enough of it.
+3. **Korean**: clear the due reviews plus today's new words, or study your daily minutes (40 by default), whichever
+   comes first. Reviews still due then wait for tomorrow. The study page shows a timer that counts each card from when
+   it's shown to when you rate it (at most 90 s, so a card left open doesn't count). After 20 minutes in one sitting it
+   suggests a break: spread the rest through the day, since spacing study out beats cramming it (Cepeda et al. 2006).
+   15 minutes away starts a new sitting. New words are sized so the long-run load fits your daily minutes, using your
+   own answer speed once there's enough of it.
 4. **Gaming**: no daily cap. Before playing, say what you'll do right after (and a length if you want one).
    A session ends by itself 10 minutes after you close the game, so the next launch asks again and checks that
    day's gate. A game still running when the day starts (4 AM) keeps counting toward sets. Every 30 minutes of play a short set is due: an upper-body move plus a leg move at your home-workout level

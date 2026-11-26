@@ -30,7 +30,8 @@ export async function render(main, ctx) {
       ${box('eq_dumbbells', s.workout.homeEquipment.includes('dumbbells'), 'Dumbbells')}
       <label>Units</label><select name="units">${['lb', 'kg'].map(u => `<option ${s.workout.units === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
     <div class="card"><h2>Korean</h2>
-      ${num('minutesPerDay', s.korean.minutesPerDay, 'Minutes a day', 'min="5" max="180"')}
+      ${num('minutesPerDay', s.korean.minutesPerDay, 'Minutes a day (after that, Korean counts as done and reviews left wait for tomorrow)', 'min="5" max="180"')}
+      ${num('chunkMinutes', s.korean.chunkMinutes, 'Suggest a break after this many minutes in one sitting (0 = never)', 'min="0" max="180"')}
       ${box('autoNewCards', s.korean.autoNewCards, 'Size new words to fit those minutes (measured from your own speed)')}
       ${num('newCardsPerDay', s.korean.newCardsPerDay, 'New cards per day (when the box above is off)', 'min="0" max="50"')}
       <label>Target recall</label><select name="desiredRetention">${[0.85, 0.9, 0.95].map(r => `<option value="${r}" ${s.korean.desiredRetention === r ? 'selected' : ''}>${r * 100}%${r === 0.9 ? ' (recommended)' : ''}</option>`).join('')}</select>
@@ -106,7 +107,7 @@ export async function render(main, ctx) {
       schedule: Object.fromEntries(DAY_KEYS.map(d => [d, v('sched_' + d).value])),
       homeEquipment: ['pullup_bar', 'dumbbells'].filter(x => v('eq_' + x).checked),
     };
-    const korean = { minutesPerDay: n('minutesPerDay'), autoNewCards: v('autoNewCards').checked, newCardsPerDay: n('newCardsPerDay'),
+    const korean = { minutesPerDay: n('minutesPerDay'), chunkMinutes: n('chunkMinutes'), autoNewCards: v('autoNewCards').checked, newCardsPerDay: n('newCardsPerDay'),
       desiredRetention: n('desiredRetention'), unlockTypingAfterDays: n('unlockTypingAfterDays') };
     const activity = { stepGoalAuto: v('stepGoalAuto').checked, stepGoal: n('stepGoal'), restDayStepGoal: n('restDayStepGoal'),
       watchWorkoutCounts: v('watchWorkoutCounts').checked, watchWorkoutMinMinutes: n('watchWorkoutMinMinutes') };

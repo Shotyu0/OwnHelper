@@ -152,18 +152,45 @@ export async function newQuota(store, korean, now, todayStart) {
   return plan.newPerDay;
 }
 
+// ------------------------------------------------------------------------------------------- study time
+// Study comes in chunks spread over the day. Each answered card counts the time from showing it to rating it, at most
+// REVIEW_CAP (a card left open while you're away). A gap of CHUNK_GAP between answers starts a new chunk; the study
+// page suggests a break after korean.chunkMinutes. After korean.minutesPerDay the day counts as done: no more new
+// words, and reviews still due wait for tomorrow. The PC gate counts the same way (helper/gaming/rules.py).
+export const REVIEW_CAP = 90e3, CHUNK_GAP = 15 * 60e3;
+
+/** Study time today and in the current chunk (ms), from today's review log. */
+export function studyTime(reviews, now) {
+  let total = 0, chunk = 0, last = null;
+  for (const r of [...reviews].sort((a, b) => a.at - b.at)) {
+    const t = Math.min(REVIEW_CAP, Math.max(0, r.ms || 0));
+    if (last != null && r.at - last >= CHUNK_GAP) chunk = 0;
+    total += t; chunk += t; last = r.at;
+  }
+  if (last != null && now - last >= CHUNK_GAP) chunk = 0;
+  return { total, chunk };
+}
+
 // ------------------------------------------------------------------------------------------- queue
 export async function counts(store, korean, now, todayStart) {
   const quota = await newQuota(store, korean, now, todayStart);
-  const [due, newToday, newAvailable, reviewedToday, known] = await Promise.all([
+  const [due, newToday, newAvailable, todays, known] = await Promise.all([
     store.count('cards', [['due', '<=', now + LEARN_AHEAD]]),
     store.count('cards', [['introducedAt', '>=', todayStart]]),
     store.count('cards', [['newRank', '>=', 0]]),
-    store.count('reviews', [['at', '>=', todayStart]]),
+    store.query('reviews', { where: [['at', '>=', todayStart]] }),
     store.count('cards', [['kind', '==', 'read'], ['status', '==', 'active']]),
   ]);
-  const newLeft = Math.max(0, Math.min(quota - newToday, newAvailable));
-  return { due, newToday, newAvailable, newLeft, reviewedToday, known, quota, done: due === 0 && newLeft === 0 };
+  const { total, chunk } = studyTime(todays, now);
+  const goalMs = (korean.minutesPerDay || 0) * 60e3, chunkGoalMs = (korean.chunkMinutes || 0) * 60e3;
+  const timeUp = goalMs > 0 && total >= goalMs;
+  const newLeft = timeUp ? 0 : Math.max(0, Math.min(quota - newToday, newAvailable));
+  return {
+    due, newToday, newAvailable, newLeft, reviewedToday: todays.length, known, quota,
+    studiedMs: total, chunkMs: chunk, goalMs, chunkGoalMs, timeUp,
+    breakDue: !timeUp && chunkGoalMs > 0 && chunk >= chunkGoalMs,
+    done: timeUp || (due === 0 && newLeft === 0),
+  };
 }
 
 export async function nextCard(store, korean, now, todayStart) {

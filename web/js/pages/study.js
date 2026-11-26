@@ -1,8 +1,9 @@
-import { nextCard, counts, answer, suspend, previews, checkTyped, blockParts, spellingTips, DECK_LABEL } from '../korean.js';
+import { nextCard, counts, answer, suspend, previews, checkTyped, blockParts, spellingTips, DECK_LABEL, REVIEW_CAP } from '../korean.js';
 import { inc } from '../store-core.js';
 import { esc, $ } from '../ui.js';
 
 const LABELS = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
+const clock = ms => `${Math.floor(ms / 60e3)}:${String(Math.floor(ms / 1e3) % 60).padStart(2, '0')}`;
 const KEYBOARD = [
   [['q', 'ㅂ'], ['w', 'ㅈ'], ['e', 'ㄷ'], ['r', 'ㄱ'], ['t', 'ㅅ'], ['y', 'ㅛ'], ['u', 'ㅕ'], ['i', 'ㅑ'], ['o', 'ㅐ'], ['p', 'ㅔ']],
   [['a', 'ㅁ'], ['s', 'ㄴ'], ['d', 'ㅇ'], ['f', 'ㄹ'], ['g', 'ㅎ'], ['h', 'ㅗ'], ['j', 'ㅓ'], ['k', 'ㅏ'], ['l', 'ㅣ']],
@@ -31,9 +32,10 @@ function speak(text) {
 export async function render(main, ctx) {
   const { store, settings } = ctx;
   let card = null, phase = 'front', result = null, typed = '', shownAt = 0, intervals = {};
+  let k = null, pastBreak = false, pastGoal = false;   // "keep going" pressed on the break / done screen
 
   main.innerHTML = `<div class="study">
-    <div class="spread small muted mb"><span id="counts"></span>
+    <div class="spread small muted mb"><span><span id="counts"></span><br><span id="timer"></span></span>
       <button id="kbd-toggle">⌨ Korean keyboard</button></div>
     <div class="card flash-card" id="card"><p class="muted">Loading…</p></div>
     <div id="kbd" class="kbd card mt" hidden>
@@ -48,9 +50,28 @@ export async function render(main, ctx) {
 
   async function load() {
     const now = ctx.now(), start = ctx.dayStart(ctx.today());
-    const [c, k] = await Promise.all([nextCard(store, settings.korean, now, start), counts(store, settings.korean, now, start)]);
+    let c;
+    [c, k] = await Promise.all([nextCard(store, settings.korean, now, start), counts(store, settings.korean, now, start)]);
     $('#counts', main).innerHTML = `Due <b>${k.due}</b> · New <b>${k.newLeft}</b> · Reviewed today <b>${k.reviewedToday}</b>`;
     card = c; phase = 'front'; result = null; typed = ''; shownAt = Date.now();
+    if (!k.breakDue) pastBreak = false;
+    if (card && k.timeUp && !pastGoal) {
+      card = null;
+      el.innerHTML = `<div class="ko">끝! 🎉</div><p class="meaning">${clock(k.goalMs)} studied today</p>
+        <p class="muted">That's your daily Korean, and the gate counts it as done. ${k.due} review${k.due === 1 ? '' : 's'} still due can wait for tomorrow.</p>
+        <p><button id="more">Keep going (reviews only)</button> <a class="btn primary" href="#/today">Back to today</a></p>`;
+      tick();
+      return;
+    }
+    if (card && k.breakDue && !pastBreak) {
+      card = null;
+      el.innerHTML = `<div class="ko">☕</div><p class="meaning">${clock(k.chunkMs)} in this sitting</p>
+        <p class="muted">Good place for a break. Come back later today for the rest (${Math.ceil((k.goalMs - k.studiedMs) / 60e3)} min left).
+          After 15 minutes away the next sitting starts fresh, and the cards you missed will be due again.</p>
+        <p><button id="more">Keep going now</button> <a class="btn primary" href="#/today">Back to today</a></p>`;
+      tick();
+      return;
+    }
     if (!card) {
       el.innerHTML = `<div class="ko">끝! 🎉</div><p class="meaning">Done for today</p>
         <p class="muted">The Korean gate is clear. Reviews today: ${k.reviewedToday}.</p>
@@ -60,7 +81,21 @@ export async function render(main, ctx) {
     intervals = previews(card, settings.korean.desiredRetention, now);
     draw();
     if (fromSound(card)) speak(card.ko);
+    tick();
   }
+
+  // Study time: today's answered cards plus the card on screen (counted up to REVIEW_CAP, like an answer).
+  function tick() {
+    if (!k) return;
+    const live = card ? Math.min(REVIEW_CAP, Date.now() - shownAt) : 0;
+    const day = k.studiedMs + live, chunk = k.chunkMs + live;
+    const t = $('#timer', main);
+    if (!t) return;
+    t.innerHTML = !k.goalMs ? `Studied today <b>${clock(day)}</b>`
+      : `Today <b style="color:var(--${day >= k.goalMs ? 'good' : 'fg'})">${clock(day)}</b> / ${clock(k.goalMs)}`
+        + (k.chunkGoalMs && day < k.goalMs ? ` · This sitting <b>${clock(chunk)}</b> / ${clock(k.chunkGoalMs)}` : '');
+  }
+  const ticker = setInterval(tick, 1000);
 
   function front() {
     const c = card;
@@ -133,6 +168,7 @@ export async function render(main, ctx) {
     if (!t) return;
     if (t.id === 'reveal') reveal();
     else if (t.id === 'check') submit();
+    else if (t.id === 'more') { if (k?.timeUp) pastGoal = true; pastBreak = true; load(); }
     else if (t.id === 'giveup') { typed = ''; result = { correct: false, distance: 99, suggested: 1 }; phase = 'back'; draw(); speak(card.ko); }
     else if (t.id === 'suspend' && card && confirm('Stop showing this card?')) suspend(store, card).then(load);
     else if (t.dataset.rate) rate(+t.dataset.rate);
@@ -146,5 +182,5 @@ export async function render(main, ctx) {
   };
   document.addEventListener('keydown', onKey);
   await load();
-  return () => document.removeEventListener('keydown', onKey);
+  return () => { document.removeEventListener('keydown', onKey); clearInterval(ticker); };
 }

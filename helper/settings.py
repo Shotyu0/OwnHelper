@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 DEFAULTS = {
     "dayStartsAtHour": 4,
     "profile": {"birthYear": None, "weightKg": None, "goal": "recomp"},
-    "korean": {"minutesPerDay": 40, "autoNewCards": True, "newCardsPerDay": 10, "desiredRetention": 0.9,
+    "korean": {"minutesPerDay": 40, "chunkMinutes": 20, "autoNewCards": True, "newCardsPerDay": 10, "desiredRetention": 0.9,
                "unlockTypingAfterDays": 7},
     "workout": {
         "schedule": {"mon": "gym", "tue": "rest", "wed": "home", "thu": "rest", "fri": "gym", "sat": "home", "sun": "rest"},

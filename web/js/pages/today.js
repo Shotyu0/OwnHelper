@@ -41,10 +41,12 @@ export async function gateInputs(ctx) {
       detail: `${steps.toLocaleString()} / ${a.restDayStepGoal.toLocaleString()} steps`, href: '#/activity' });
   }
   if (g.requireKoreanReviews || g.requireKoreanNewCards) {
+    // Done when everything due is cleared, or after the daily minutes (reviews left wait for tomorrow; korean.js counts)
     const parts = [];
-    if (g.requireKoreanReviews && korean.due) parts.push(`${korean.due} reviews due`);
-    if (g.requireKoreanNewCards && korean.newLeft) parts.push(`${korean.newLeft} new cards left`);
-    items.push({ key: 'korean', label: 'Korean', ok: !parts.length, detail: parts.join(', ') || 'Done for today', href: '#/study' });
+    if (!korean.timeUp && g.requireKoreanReviews && korean.due) parts.push(`${korean.due} reviews due`);
+    if (!korean.timeUp && g.requireKoreanNewCards && korean.newLeft) parts.push(`${korean.newLeft} new cards left`);
+    const detail = korean.timeUp ? `${Math.round(korean.goalMs / 60e3)} min studied today` : parts.join(', ') || 'Done for today';
+    items.push({ key: 'korean', label: 'Korean', ok: !parts.length, detail, href: '#/study' });
   }
   return { items, ws, korean, steps, activityDoc, watchSessions, walks, walk };
 }
@@ -109,7 +111,8 @@ export async function render(main, ctx) {
     <div class="card">
       <h2>Korean</h2>
       <div class="big">${gate.korean.known}</div><div class="muted small">cards learning</div>
-      <p class="small">Due now: <b>${gate.korean.due}</b> · New left today: <b>${gate.korean.newLeft}</b><br>Reviewed today: ${gate.korean.reviewedToday}</p>
+      <p class="small">Due now: <b>${gate.korean.due}</b> · New left today: <b>${gate.korean.newLeft}</b><br>Reviewed today: ${gate.korean.reviewedToday}
+        ${gate.korean.goalMs ? ` · Studied <b>${Math.floor(gate.korean.studiedMs / 60e3)}</b> / ${Math.round(gate.korean.goalMs / 60e3)} min` : ''}</p>
       <a class="btn ${gate.korean.done ? '' : 'primary'}" href="#/study">${gate.korean.done ? 'Done — review ahead?' : 'Study'}</a>
     </div>
     <div class="card">

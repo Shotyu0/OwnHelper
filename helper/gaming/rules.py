@@ -34,6 +34,7 @@ from ..settings import calendar_day, day_key, day_start, effective_gaming, is_we
 
 LEARN_AHEAD_MS = 20 * 60 * 1000
 MIN = 60 * 1000
+REVIEW_CAP_MS = 90 * 1000      # one answered Korean card counts at most this much study time (korean.js)
 DAY_LABELS = {"gym30": "lunch gym"}   # web/js/workout.js DAY_TYPES
 # Used until the web app has written meta/setPlan from your workout levels.
 DEFAULT_SET_PLAN = [
@@ -124,12 +125,15 @@ class Rules:
             items.append({"key": "steps", "label": "Rest-day walk", "ok": steps >= a["restDayStepGoal"],
                           "detail": f"{steps:,} / {a['restDayStepGoal']:,} steps"})
         if g["requireKoreanReviews"] or g["requireKoreanNewCards"]:
+            # Done when everything due is cleared, or after the daily minutes (reviews left wait for tomorrow)
+            goal = float(self.settings["korean"].get("minutesPerDay") or 0)
+            time_up = bool(goal) and self.korean_minutes(start) >= goal
             parts = []
-            if g["requireKoreanReviews"]:
+            if g["requireKoreanReviews"] and not time_up:
                 due = self.store.count("cards", [("due", "<=", now + LEARN_AHEAD_MS)])
                 if due:
                     parts.append(f"{due} reviews due")
-            if g["requireKoreanNewCards"]:
+            if g["requireKoreanNewCards"] and not time_up:
                 quota = self.korean_quota()
                 new_today = self.store.count("cards", [("introducedAt", ">=", start)])
                 if new_today < quota:
@@ -137,8 +141,13 @@ class Rules:
                     if left:
                         parts.append(f"{left} new cards left")
             items.append({"key": "korean", "label": "Korean", "ok": not parts,
-                          "detail": ", ".join(parts) or "Done for today"})
+                          "detail": f"{goal:g} min studied today" if time_up else ", ".join(parts) or "Done for today"})
         return items
+
+    def korean_minutes(self, start: float) -> float:
+        """Korean study minutes since start: each answered card counts up to REVIEW_CAP_MS (korean.js studyTime)."""
+        reviews = self.store.query("reviews", [("at", ">=", start)])
+        return sum(min(REVIEW_CAP_MS, max(0, r.get("ms") or 0)) for r in reviews) / MIN
 
     def korean_quota(self) -> int:
         """New cards today. In auto mode the web app sizes it to the time budget and stores it in meta/korean."""

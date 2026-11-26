@@ -5,7 +5,7 @@ export const DEFAULTS = {
   // Used for personal targets (Plan page). Weight/resting HR/VO2 max from the watch override these when present.
   profile: { birthYear: null, weightKg: null, goal: 'recomp' },
   // autoNewCards: new words/day are sized so the long-run daily load fits minutesPerDay (korean.js newQuota).
-  korean: { minutesPerDay: 40, autoNewCards: true, newCardsPerDay: 10, desiredRetention: 0.9, unlockTypingAfterDays: 7 },
+  korean: { minutesPerDay: 40, chunkMinutes: 20, autoNewCards: true, newCardsPerDay: 10, desiredRetention: 0.9, unlockTypingAfterDays: 7 },
   workout: {
     schedule: { mon: 'gym', tue: 'rest', wed: 'home', thu: 'rest', fri: 'gym', sat: 'home', sun: 'rest' },
     homeEquipment: [], units: 'lb', restCompound: 150, restAccessory: 90, restSuperset: 60,

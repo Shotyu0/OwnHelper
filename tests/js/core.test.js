@@ -74,6 +74,28 @@ test('review patch, typing unlock and suspend', async () => {
   assert.equal(await K.addNote(store, { deck: 'mined', ko: '고양이', meaning: 'cat' }, now), false);
 });
 
+test('study time: sittings, breaks and the daily minutes', async () => {
+  const t0 = Date.UTC(2026, 10, 26, 3), min = 60e3;
+  const rs = Array.from({ length: 15 }, (_, i) => ({ at: t0 + i * min, ms: min }));   // a 15-minute sitting
+  rs.push({ at: t0 + 15 * min, ms: 10 * min });                                        // left open: counts 90 s
+  assert.deepEqual(K.studyTime(rs, t0 + 16 * min), { total: 16.5 * min, chunk: 16.5 * min });
+  assert.deepEqual(K.studyTime(rs, t0 + 31 * min), { total: 16.5 * min, chunk: 0 });   // 15 min away: next sitting
+  rs.push({ at: t0 + 60 * min, ms: 0.5 * min });
+  assert.deepEqual(K.studyTime(rs, t0 + 61 * min), { total: 17 * min, chunk: 0.5 * min });
+
+  const store = new LocalStore('st:', null), k = { ...withDefaults().korean, autoNewCards: false };
+  await store.set('cards', 'x_r', { kind: 'read', status: 'active', due: t0 });
+  await store.set('cards', 'y_r', { kind: 'read', status: 'new', newRank: 1 });
+  const add = async (n, from) => { for (let i = 0; i < n; i++) await store.set('reviews', `r${from + i}`, { at: t0 + (from + i) * min, ms: 1.5 * min }); };
+  for (const [i, r] of rs.entries()) await store.set('reviews', `a${i}`, r);
+  await add(14, 60);      // 17 + 21 = 38 min today, 21.5 in this sitting
+  let c = await K.counts(store, k, t0 + 74 * min, t0 - 120 * min);
+  assert.ok(c.breakDue && !c.timeUp && !c.done && c.newLeft === 1);
+  await add(2, 74);       // 41 min: done for today, the review still due waits
+  c = await K.counts(store, k, t0 + 76 * min, t0 - 120 * min);
+  assert.ok(c.timeUp && c.done && !c.breakDue && c.newLeft === 0 && c.due === 1);
+});
+
 test('typing check works letter by letter', () => {
   assert.ok(K.checkTyped('공부하다', '공부하다').correct);
   const r = K.checkTyped('공부하다', '공부허다');
