@@ -156,7 +156,8 @@ export async function newQuota(store, korean, now, todayStart) {
 // Study comes in chunks spread over the day. Each answered card counts the time from showing it to rating it, at most
 // REVIEW_CAP (a card left open while you're away). A gap of CHUNK_GAP between answers starts a new chunk; the study
 // page suggests a break after korean.chunkMinutes. After korean.minutesPerDay the day counts as done: no more new
-// words, and reviews still due wait for tomorrow. The PC gate counts the same way (helper/gaming/rules.py).
+// words, and reviews still due wait for tomorrow. Each answer also adds its time to daily/{day}.studyMs, which the
+// Today page and the PC gate read (one read; reading every review there used up the Firestore free quota).
 export const REVIEW_CAP = 90e3, CHUNK_GAP = 15 * 60e3;
 
 /** Study time today and in the current chunk (ms), from today's review log. */
@@ -172,21 +173,24 @@ export function studyTime(reviews, now) {
 }
 
 // ------------------------------------------------------------------------------------------- queue
-export async function counts(store, korean, now, todayStart) {
+/** Pass today's reviews (the study page keeps them) for the time in this sitting; otherwise the day's total comes
+ * from daily/{day}. */
+export async function counts(store, korean, now, todayStart, reviews = null) {
   const quota = await newQuota(store, korean, now, todayStart);
-  const [due, newToday, newAvailable, todays, known] = await Promise.all([
+  const [due, newToday, newAvailable, daily, known] = await Promise.all([
     store.count('cards', [['due', '<=', now + LEARN_AHEAD]]),
     store.count('cards', [['introducedAt', '>=', todayStart]]),
     store.count('cards', [['newRank', '>=', 0]]),
-    store.query('reviews', { where: [['at', '>=', todayStart]] }),
+    reviews ? null : store.get('daily', ymd(new Date(todayStart))),
     store.count('cards', [['kind', '==', 'read'], ['status', '==', 'active']]),
   ]);
-  const { total, chunk } = studyTime(todays, now);
+  const { total, chunk } = reviews ? studyTime(reviews, now) : { total: daily?.studyMs || 0, chunk: 0 };
+  const reviewedToday = reviews ? reviews.length : daily?.reviews || 0;
   const goalMs = (korean.minutesPerDay || 0) * 60e3, chunkGoalMs = (korean.chunkMinutes || 0) * 60e3;
   const timeUp = goalMs > 0 && total >= goalMs;
   const newLeft = timeUp ? 0 : Math.max(0, Math.min(quota - newToday, newAvailable));
   return {
-    due, newToday, newAvailable, newLeft, reviewedToday: todays.length, known, quota,
+    due, newToday, newAvailable, newLeft, reviewedToday, known, quota,
     studiedMs: total, chunkMs: chunk, goalMs, chunkGoalMs, timeUp,
     breakDue: !timeUp && chunkGoalMs > 0 && chunk >= chunkGoalMs,
     done: timeUp || (due === 0 && newLeft === 0),

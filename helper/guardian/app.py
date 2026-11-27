@@ -43,7 +43,8 @@ from .inputwatch import InputWatch, Presence, fmt_idle
 TICK_MS = 2500
 CLOSE_GRACE_S = 15
 STARTUP_GRACE_S = 120
-PUBLISH_EVERY_S = 60
+PUBLISH_EVERY_S = 300   # changes arrive through listeners (sets, sessions, settings, walk, workouts); this is a backstop
+OFFLINE_RETRY_S = 60    # while Firebase can't be reached (no internet, or the daily free quota is used up)
 BG, CARD, FG, MUTED = "#15171c", "#1f232b", "#e8eaed", "#9aa0a6"
 GOOD, BAD, ACCENT, WARN = "#4ade80", "#f87171", "#60a5fa", "#fbbf24"
 FONT = "Segoe UI"
@@ -160,6 +161,9 @@ class Guardian:
         self.requests: queue.Queue = queue.Queue()
         self.dirty = True   # status needs publishing
         self.last_publish = 0.0
+        self.offline_since: float | None = None   # Firebase unreachable since (time.time()); sets are paused meanwhile
+        self.offline_retry_at = 0.0
+        self.offline_noted = False
         self.session_dlg: tk.Toplevel | None = None
         self.override_dlg: tk.Toplevel | None = None
         self.timeup_win: tk.Toplevel | None = None
@@ -240,7 +244,7 @@ class Guardian:
     def _on_daily(self, doc):
         # Korean answers and steps change the gate, a dinner break the set clock. Only those fields: the guardian
         # writes this doc too (gameMinutes, nudge counts), and reacting to its own writes would loop.
-        key = tuple((doc or {}).get(k) for k in ("reviews", "newCards", "steps", "dinner"))
+        key = tuple((doc or {}).get(k) for k in ("reviews", "newCards", "studyMs", "steps", "dinner"))
         if key != self.daily_key:
             self.daily_key = key
             self.dirty = True
@@ -286,14 +290,24 @@ class Guardian:
         return max(self.open_sessions, key=lambda s: s["startedAt"]) if self.open_sessions else None
 
     def _publish(self, force: bool = False) -> None:
-        if force or self.dirty or self.st is None or time.time() - self.last_publish > PUBLISH_EVERY_S:
+        t = time.time()
+        if self.offline_since is not None and t < self.offline_retry_at:
+            return
+        if force or self.dirty or self.st is None or t - self.last_publish > PUBLISH_EVERY_S:
             self.dirty = False   # cleared first, so a change that lands while publishing triggers another
             try:
                 self.st = self.rules.publish()
             except Exception:
                 self.dirty = True
-                raise
-            self.last_publish = time.time()
+                self.offline_retry_at = t + OFFLINE_RETRY_S
+                if self.offline_since is None:
+                    self.offline_since = t
+                    log.exception("Can't reach Firebase: set prompts are paused, retrying every %ds", OFFLINE_RETRY_S)
+                return
+            if self.offline_since is not None:
+                log.info("Firebase reachable again (was unreachable for %s)", fmt_idle(t - self.offline_since))
+                self.offline_since, self.offline_noted = None, False
+            self.last_publish = t
 
     # ------------------------------------------------------------------ main loop
     def run(self) -> None:
@@ -450,6 +464,14 @@ class Guardian:
 
     # ------------------------------------------------------------------ sets during play
     def _check_sets(self, sess, games, now) -> None:
+        if self.offline_since is not None:
+            # A set can't be logged without Firebase, so don't prompt for one or close the game over it.
+            self._clear_break()
+            if not self.offline_noted:
+                self.offline_noted = True
+                self._toast("Can't reach Firebase, so sets can't be logged right now. Set prompts are paused until "
+                            "it's back. Keep doing a set every 30 min anyway.", WARN, seconds=20)
+            return
         sets = (self.st or {}).get("sets")
         # A fixed-length session that ends before the next set is due: the end of the session is the break.
         if not sets or sets.get("dueAt") is None or (sess.get("plannedEnd") and sess["plannedEnd"] <= sets["dueAt"]):
@@ -1147,8 +1169,27 @@ def single_instance() -> bool:
     return ctypes.windll.kernel32.GetLastError() != 183  # ERROR_ALREADY_EXISTS
 
 
+def wait_for_firebase(store, sleep=time.sleep) -> None:
+    """Started without Firebase (no internet yet, or the free daily read quota used up): wait for it. Starting blind
+    would mean not knowing the open sessions, so every running game would look like it had none."""
+    noted = False
+    while True:
+        try:
+            store.get("meta", "gaming")
+            if noted:
+                log.info("Firebase reachable: starting the guardian")
+            return
+        except Exception as e:
+            if not noted:
+                noted = True
+                log.warning("Can't reach Firebase (%s): the guardian starts once it can, checking every %ds",
+                            str(e).splitlines()[0][:120], OFFLINE_RETRY_S)
+            sleep(OFFLINE_RETRY_S)
+
+
 def main(store, root: tk.Tk | None = None) -> None:
     if not single_instance():
         log.warning("Guardian already running; exiting.")
         return
+    wait_for_firebase(store)
     Guardian(store, root).run()

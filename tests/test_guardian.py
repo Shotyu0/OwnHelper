@@ -488,3 +488,46 @@ def test_no_set_warnings_or_prompts_during_a_treadmill_walk(env, monkeypatch):
     walks.stop_walk(store, clock[0])                  # not cancelled: due the moment you step off
     later(3)
     assert calls["break"] == [True, True]
+
+
+def test_without_firebase_a_due_set_is_paused_not_enforced(env, monkeypatch):
+    make, running, calls, wall, clock, store, rules = env
+    g = make()
+    rules.start_session(0, "sleep")
+    running.append(GAME)
+    g._step()
+
+    def later(sec):
+        wall["t"] += sec
+        clock[0] += sec * 1000
+        g._step()
+
+    later(30 * 60 + 5)                                # the set is due: the prompt opens with its countdown
+    assert calls["break"] == [True]
+    real = store.query
+
+    def down(*a, **k):
+        raise RuntimeError("429 Quota exceeded")
+    monkeypatch.setattr(store, "query", down)         # e.g. the free daily read quota is used up
+    g.dirty = True                                    # you log the set, but it can't be read back
+    later(3)
+    assert g.break_win is None and g.offline_since is not None
+    later(5 * 60)                                     # long past the 60 s countdown: nothing is closed
+    assert not calls["kill"] and not calls["close"] and calls["break"] == [True]
+    assert sum("Can't reach Firebase" in t for t in calls["toast"]) == 1
+    monkeypatch.setattr(store, "query", real)
+    later(60)                                         # reachable again: the set you still owe is due
+    assert g.offline_since is None and calls["break"] == [True, True]
+
+
+def test_started_without_firebase_it_waits_instead_of_starting_blind():
+    tries, slept = [], []
+
+    class Down:
+        def get(self, col, id_):
+            tries.append(1)
+            if len(tries) < 3:
+                raise RuntimeError("429 Quota exceeded")
+            return None
+    gapp.wait_for_firebase(Down(), sleep=slept.append)
+    assert len(tries) == 3 and slept == [gapp.OFFLINE_RETRY_S] * 2

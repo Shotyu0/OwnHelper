@@ -167,7 +167,12 @@ logged without a heart-rate rise shows up as "no HR rise seen".
 - A game running **as administrator** or protected by anti-cheat may refuse to close. That's logged as
   "kill failed". Fix: run the guardian elevated with Task Scheduler ("Run with highest privileges").
 - Only Steam games, plus exes you list in `config.toml`, are guarded.
-- Sessions need Firebase. If the internet is down, games can't be unlocked (an already running session continues).
+- Sessions need Firebase. If the internet is down, games can't be unlocked. An already running session continues,
+  and set prompts pause because a set couldn't be logged; the guardian retries every minute. Started without
+  Firebase, the guardian waits for it.
+- Firebase's free plan allows 50,000 reads a day (reset at midnight Pacific). The guardian refreshes every 5 minutes,
+  and whenever a set, session, setting, walk, workout or Korean answer changes, which comes to about 10,000–15,000
+  reads a day.
 - Health Connect deletions of steps/heart-rate records aren't mirrored (deleted watch workouts are).
 
 ## Development

@@ -1,4 +1,4 @@
-import { nextCard, counts, answer, suspend, previews, checkTyped, blockParts, spellingTips, DECK_LABEL, REVIEW_CAP } from '../korean.js';
+import { nextCard, counts, answer, suspend, previews, checkTyped, blockParts, spellingTips, DECK_LABEL, REVIEW_CAP, studyTime } from '../korean.js';
 import { inc } from '../store-core.js';
 import { esc, $ } from '../ui.js';
 
@@ -33,6 +33,7 @@ export async function render(main, ctx) {
   const { store, settings } = ctx;
   let card = null, phase = 'front', result = null, typed = '', shownAt = 0, intervals = {};
   let k = null, pastBreak = false, pastGoal = false;   // "keep going" pressed on the break / done screen
+  let todays = null, todaysStart = null;                // today's answers, read once, then kept here
 
   main.innerHTML = `<div class="study">
     <div class="spread small muted mb"><span><span id="counts"></span><br><span id="timer"></span></span>
@@ -50,8 +51,14 @@ export async function render(main, ctx) {
 
   async function load() {
     const now = ctx.now(), start = ctx.dayStart(ctx.today());
+    if (todaysStart !== start) {
+      todays = await store.query('reviews', { where: [['at', '>=', start]] });
+      todaysStart = start;
+      // the day's total that Today and the PC read; recomputed here in case answers came from elsewhere
+      store.update('daily', ctx.today(), { day: ctx.today(), studyMs: studyTime(todays, now).total });
+    }
     let c;
-    [c, k] = await Promise.all([nextCard(store, settings.korean, now, start), counts(store, settings.korean, now, start)]);
+    [c, k] = await Promise.all([nextCard(store, settings.korean, now, start), counts(store, settings.korean, now, start, todays)]);
     $('#counts', main).innerHTML = `Due <b>${k.due}</b> · New <b>${k.newLeft}</b> · Reviewed today <b>${k.reviewedToday}</b>`;
     card = c; phase = 'front'; result = null; typed = ''; shownAt = Date.now();
     if (!k.breakDue) pastBreak = false;
@@ -157,9 +164,10 @@ export async function render(main, ctx) {
   async function rate(r) {
     if (!card) return;
     const c = card; card = null;
-    const now = ctx.now(), today = ctx.today();
-    await answer(store, c, r, settings.korean, now, { ms: Date.now() - shownAt, typed: typed || null });
-    store.update('daily', today, { day: today, reviews: inc(1), ...(c.status === 'new' && c.kind === 'read' ? { newCards: inc(1) } : {}) });
+    const now = ctx.now(), today = ctx.today(), ms = Date.now() - shownAt;
+    await answer(store, c, r, settings.korean, now, { ms, typed: typed || null });
+    todays?.push({ at: now, ms });
+    store.update('daily', today, { day: today, reviews: inc(1), studyMs: inc(Math.min(REVIEW_CAP, ms)), ...(c.status === 'new' && c.kind === 'read' ? { newCards: inc(1) } : {}) });
     load();
   }
 

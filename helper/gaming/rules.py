@@ -34,7 +34,6 @@ from ..settings import calendar_day, day_key, day_start, effective_gaming, is_we
 
 LEARN_AHEAD_MS = 20 * 60 * 1000
 MIN = 60 * 1000
-REVIEW_CAP_MS = 90 * 1000      # one answered Korean card counts at most this much study time (korean.js)
 DAY_LABELS = {"gym30": "lunch gym"}   # web/js/workout.js DAY_TYPES
 # Used until the web app has written meta/setPlan from your workout levels.
 DEFAULT_SET_PLAN = [
@@ -127,7 +126,7 @@ class Rules:
         if g["requireKoreanReviews"] or g["requireKoreanNewCards"]:
             # Done when everything due is cleared, or after the daily minutes (reviews left wait for tomorrow)
             goal = float(self.settings["korean"].get("minutesPerDay") or 0)
-            time_up = bool(goal) and self.korean_minutes(start) >= goal
+            time_up = bool(goal) and self.korean_minutes() >= goal
             parts = []
             if g["requireKoreanReviews"] and not time_up:
                 due = self.store.count("cards", [("due", "<=", now + LEARN_AHEAD_MS)])
@@ -144,10 +143,11 @@ class Rules:
                           "detail": f"{goal:g} min studied today" if time_up else ", ".join(parts) or "Done for today"})
         return items
 
-    def korean_minutes(self, start: float) -> float:
-        """Korean study minutes since start: each answered card counts up to REVIEW_CAP_MS (korean.js studyTime)."""
-        reviews = self.store.query("reviews", [("at", ">=", start)])
-        return sum(min(REVIEW_CAP_MS, max(0, r.get("ms") or 0)) for r in reviews) / MIN
+    def korean_minutes(self) -> float:
+        """Korean study minutes today. The web app adds each answered card (up to 90 s) to daily/{day}.studyMs, so
+        this is one read: status() runs every few minutes, and reading every review each time used up the
+        Firestore free quota (50k reads a day) on 2026-11-26."""
+        return float((self.store.get("daily", self.today()) or {}).get("studyMs") or 0) / MIN
 
     def korean_quota(self) -> int:
         """New cards today. In auto mode the web app sizes it to the time budget and stores it in meta/korean."""

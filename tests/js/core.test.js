@@ -6,7 +6,7 @@ import * as K from '../../web/js/korean.js';
 import * as W from '../../web/js/workout.js';
 import { template } from '../../web/js/workout-lib.js';
 import { withDefaults, gamingChange, effectiveGaming } from '../../web/js/settings.js';
-import { dayKey, dayStart, addDays } from '../../web/js/time.js';
+import { dayKey, dayStart, addDays, ymd } from '../../web/js/time.js';
 
 const readWeb = f => readFileSync(new URL('../../web/' + f, import.meta.url), 'utf8');
 const settings = () => withDefaults({ workout: { schedule: Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(d => [d, 'home'])) } });
@@ -89,11 +89,17 @@ test('study time: sittings, breaks and the daily minutes', async () => {
   const add = async (n, from) => { for (let i = 0; i < n; i++) await store.set('reviews', `r${from + i}`, { at: t0 + (from + i) * min, ms: 1.5 * min }); };
   for (const [i, r] of rs.entries()) await store.set('reviews', `a${i}`, r);
   await add(14, 60);      // 17 + 21 = 38 min today, 21.5 in this sitting
-  let c = await K.counts(store, k, t0 + 74 * min, t0 - 120 * min);
+  const todays = async () => store.query('reviews', { where: [['at', '>=', t0 - 120 * min]] });
+  let c = await K.counts(store, k, t0 + 74 * min, t0 - 120 * min, await todays());
   assert.ok(c.breakDue && !c.timeUp && !c.done && c.newLeft === 1);
   await add(2, 74);       // 41 min: done for today, the review still due waits
-  c = await K.counts(store, k, t0 + 76 * min, t0 - 120 * min);
+  c = await K.counts(store, k, t0 + 76 * min, t0 - 120 * min, await todays());
   assert.ok(c.timeUp && c.done && !c.breakDue && c.newLeft === 0 && c.due === 1);
+  // without the review list (Today page): the day's total from daily/{day}, one read
+  const day = ymd(new Date(t0 - 120 * min));
+  await store.set('daily', day, { studyMs: 39 * min, reviews: 30 });
+  c = await K.counts(store, k, t0 + 76 * min, t0 - 120 * min);
+  assert.ok(!c.timeUp && c.reviewedToday === 30 && c.studiedMs === 39 * min);
 });
 
 test('typing check works letter by letter', () => {

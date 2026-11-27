@@ -273,12 +273,11 @@ def test_korean_is_done_after_the_daily_minutes_even_with_reviews_left():
     store, r = make(clock, requireWorkout=False)
     store.set("cards", "a_r", {"kind": "read", "status": "active", "due": SAT_NOON - 1000})
     korean = lambda: {i["key"]: i for i in r.gate()}["korean"]
-    start = day_start("2026-11-21", 4)
-    for i in range(26):     # 39 min: each answer counts up to 90 s, so the card left open 10 min counts 90 s
-        store.set("reviews", f"r{i}", {"at": start + 3600e3 + i * 1000, "ms": 600_000 if i == 0 else 90_000})
-    store.set("reviews", "yesterday", {"at": start - 1000, "ms": 90_000})
+    # the web app adds each answer's time to daily/{day}.studyMs: one read, not one per review
+    store.set("daily", "2026-11-20", {"studyMs": 60 * MIN})                  # yesterday doesn't count
+    store.set("daily", "2026-11-21", {"studyMs": 39 * MIN})
     assert korean() == {"key": "korean", "label": "Korean", "ok": False, "detail": "1 reviews due"}
-    store.set("reviews", "last", {"at": SAT_NOON - 1000, "ms": 60_000})
+    store.update("daily", "2026-11-21", {"studyMs": 40 * MIN})
     assert korean() == {"key": "korean", "label": "Korean", "ok": True, "detail": "40 min studied today"}
 
 
